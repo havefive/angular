@@ -6,7 +6,6 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-
 import * as cdAst from '../expression_parser/ast';
 import {Identifiers} from '../identifiers';
 import * as o from '../output/output_ast';
@@ -16,8 +15,49 @@ export class EventHandlerVars { static event = o.variable('$event'); }
 export interface LocalResolver { getLocal(name: string): o.Expression|null; }
 
 export class ConvertActionBindingResult {
-  constructor(public stmts: o.Statement[], public allowDefault: o.ReadVarExpr) {}
+  /**
+   * Store statements which are render3 compatible.
+   */
+  render3Stmts: o.Statement[];
+  constructor(
+      /**
+       * Render2 compatible statements,
+       */
+      public stmts: o.Statement[],
+      /**
+       * Variable name used with render2 compatible statements.
+       */
+      public allowDefault: o.ReadVarExpr) {
+    /**
+     * This is bit of a hack. It converts statements which render2 expects to statements which are
+     * expected by render3.
+     *
+     * Example: `<div click="doSomething($event)">` will generate:
+     *
+     * Render3:
+     * ```
+     * const pd_b:any = ((<any>ctx.doSomething($event)) !== false);
+     * return pd_b;
+     * ```
+     *
+     * but render2 expects:
+     * ```
+     * return ctx.doSomething($event);
+     * ```
+     */
+    // TODO(misko): remove this hack once we no longer support ViewEngine.
+    this.render3Stmts = stmts.map((statement: o.Statement) => {
+      if (statement instanceof o.DeclareVarStmt && statement.name == allowDefault.name &&
+          statement.value instanceof o.BinaryOperatorExpr) {
+        const lhs = statement.value.lhs as o.CastExpr;
+        return new o.ReturnStatement(lhs.value);
+      }
+      return statement;
+    });
+  }
 }
+
+export type InterpolationFunction = (args: o.Expression[]) => o.Expression;
 
 /**
  * Converts the given expression AST into an executable output AST, assuming the expression is
@@ -25,7 +65,7 @@ export class ConvertActionBindingResult {
  */
 export function convertActionBinding(
     localResolver: LocalResolver | null, implicitReceiver: o.Expression, action: cdAst.AST,
-    bindingId: string): ConvertActionBindingResult {
+    bindingId: string, interpolationFunction?: InterpolationFunction): ConvertActionBindingResult {
   if (!localResolver) {
     localResolver = new DefaultLocalResolver();
   }
@@ -52,7 +92,8 @@ export function convertActionBinding(
       },
       action);
 
-  const visitor = new _AstToIrVisitor(localResolver, implicitReceiver, bindingId);
+  const visitor =
+      new _AstToIrVisitor(localResolver, implicitReceiver, bindingId, interpolationFunction);
   const actionStmts: o.Statement[] = [];
   flattenStatements(actionWithoutBuiltins.visit(visitor, _Mode.Statement), actionStmts);
   prependTemporaryDecls(visitor.temporaryCount, bindingId, actionStmts);
@@ -95,9 +136,10 @@ export enum BindingForm {
   General,
 
   // Try to generate a simple binding (no temporaries or statements)
-  // otherise generate a general binding
+  // otherwise generate a general binding
   TrySimple,
 }
+
 /**
  * Converts the given expression AST into an executable output AST, assuming the expression
  * is used in property binding. The expression has to be preprocessed via
@@ -105,14 +147,15 @@ export enum BindingForm {
  */
 export function convertPropertyBinding(
     localResolver: LocalResolver | null, implicitReceiver: o.Expression,
-    expressionWithoutBuiltins: cdAst.AST, bindingId: string,
-    form: BindingForm): ConvertPropertyBindingResult {
+    expressionWithoutBuiltins: cdAst.AST, bindingId: string, form: BindingForm,
+    interpolationFunction?: InterpolationFunction): ConvertPropertyBindingResult {
   if (!localResolver) {
     localResolver = new DefaultLocalResolver();
   }
   const currValExpr = createCurrValueExpr(bindingId);
   const stmts: o.Statement[] = [];
-  const visitor = new _AstToIrVisitor(localResolver, implicitReceiver, bindingId);
+  const visitor =
+      new _AstToIrVisitor(localResolver, implicitReceiver, bindingId, interpolationFunction);
   const outputExpr: o.Expression = expressionWithoutBuiltins.visit(visitor, _Mode.Expression);
 
   if (visitor.temporaryCount) {
@@ -200,7 +243,7 @@ class _AstToIrVisitor implements cdAst.AstVisitor {
 
   constructor(
       private _localResolver: LocalResolver, private _implicitReceiver: o.Expression,
-      private bindingId: string) {}
+      private bindingId: string, private interpolationFunction: InterpolationFunction|undefined) {}
 
   visitBinary(ast: cdAst.Binary, mode: _Mode): any {
     let op: o.BinaryOperator;
@@ -303,6 +346,9 @@ class _AstToIrVisitor implements cdAst.AstVisitor {
     }
     args.push(o.literal(ast.strings[ast.strings.length - 1]));
 
+    if (this.interpolationFunction) {
+      return this.interpolationFunction(args);
+    }
     return ast.expressions.length <= 9 ?
         o.importExpr(Identifiers.inlineInterpolate).callFn(args) :
         o.importExpr(Identifiers.interpolate).callFn([args[0], o.literalArr(args.slice(1))]);
@@ -334,7 +380,7 @@ class _AstToIrVisitor implements cdAst.AstVisitor {
   }
 
   visitLiteralPrimitive(ast: cdAst.LiteralPrimitive, mode: _Mode): any {
-    // For literal values of null, undefined, true, or false allow type inteference
+    // For literal values of null, undefined, true, or false allow type interference
     // to infer the type.
     const type =
         ast.value === null || ast.value === undefined || ast.value === true || ast.value === true ?
@@ -641,7 +687,7 @@ function convertStmtIntoExpression(stmt: o.Statement): o.Expression|null {
   return null;
 }
 
-class BuiltinFunctionCall extends cdAst.FunctionCall {
+export class BuiltinFunctionCall extends cdAst.FunctionCall {
   constructor(span: cdAst.ParseSpan, public args: cdAst.AST[], public converter: BuiltinConverter) {
     super(span, null, args);
   }

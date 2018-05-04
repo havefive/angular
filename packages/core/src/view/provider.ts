@@ -7,12 +7,13 @@
  */
 
 import {ChangeDetectorRef, SimpleChange, SimpleChanges, WrappedValue} from '../change_detection/change_detection';
-import {Injector, resolveForwardRef} from '../di';
+import {INJECTOR, Injector, resolveForwardRef} from '../di';
 import {ElementRef} from '../linker/element_ref';
 import {TemplateRef} from '../linker/template_ref';
 import {ViewContainerRef} from '../linker/view_container_ref';
 import {Renderer as RendererV1, Renderer2} from '../render/api';
 import {stringify} from '../util';
+
 import {createChangeDetectorRef, createInjector, createRendererV1} from './refs';
 import {BindingDef, BindingFlags, DepDef, DepFlags, NodeDef, NodeFlags, OutputDef, OutputType, ProviderData, QueryValueType, Services, ViewData, ViewFlags, ViewState, asElementData, asProviderData, shouldCallLifecycleInitHook} from './types';
 import {calcBindingFlags, checkBinding, dispatchEvent, isComponentView, splitDepsDsl, splitMatchedQueriesDsl, tokenKey, viewParentEl} from './util';
@@ -24,6 +25,7 @@ const ViewContainerRefTokenKey = tokenKey(ViewContainerRef);
 const TemplateRefTokenKey = tokenKey(TemplateRef);
 const ChangeDetectorRefTokenKey = tokenKey(ChangeDetectorRef);
 const InjectorRefTokenKey = tokenKey(Injector);
+const INJECTORRefTokenKey = tokenKey(INJECTOR);
 
 export function directiveDef(
     checkIndex: number, flags: NodeFlags,
@@ -346,50 +348,57 @@ export function resolveDep(
     elDef = elDef.parent !;
   }
 
-  while (view) {
+  let searchView: ViewData|null = view;
+  while (searchView) {
     if (elDef) {
       switch (tokenKey) {
         case RendererV1TokenKey: {
-          const compView = findCompView(view, elDef, allowPrivateServices);
+          const compView = findCompView(searchView, elDef, allowPrivateServices);
           return createRendererV1(compView);
         }
         case Renderer2TokenKey: {
-          const compView = findCompView(view, elDef, allowPrivateServices);
+          const compView = findCompView(searchView, elDef, allowPrivateServices);
           return compView.renderer;
         }
         case ElementRefTokenKey:
-          return new ElementRef(asElementData(view, elDef.nodeIndex).renderElement);
+          return new ElementRef(asElementData(searchView, elDef.nodeIndex).renderElement);
         case ViewContainerRefTokenKey:
-          return asElementData(view, elDef.nodeIndex).viewContainer;
+          return asElementData(searchView, elDef.nodeIndex).viewContainer;
         case TemplateRefTokenKey: {
           if (elDef.element !.template) {
-            return asElementData(view, elDef.nodeIndex).template;
+            return asElementData(searchView, elDef.nodeIndex).template;
           }
           break;
         }
         case ChangeDetectorRefTokenKey: {
-          let cdView = findCompView(view, elDef, allowPrivateServices);
+          let cdView = findCompView(searchView, elDef, allowPrivateServices);
           return createChangeDetectorRef(cdView);
         }
         case InjectorRefTokenKey:
-          return createInjector(view, elDef);
+        case INJECTORRefTokenKey:
+          return createInjector(searchView, elDef);
         default:
           const providerDef =
               (allowPrivateServices ? elDef.element !.allProviders :
                                       elDef.element !.publicProviders) ![tokenKey];
           if (providerDef) {
-            let providerData = asProviderData(view, providerDef.nodeIndex);
+            let providerData = asProviderData(searchView, providerDef.nodeIndex);
             if (!providerData) {
-              providerData = {instance: _createProviderInstance(view, providerDef)};
-              view.nodes[providerDef.nodeIndex] = providerData as any;
+              providerData = {instance: _createProviderInstance(searchView, providerDef)};
+              searchView.nodes[providerDef.nodeIndex] = providerData as any;
             }
             return providerData.instance;
           }
       }
     }
-    allowPrivateServices = isComponentView(view);
-    elDef = viewParentEl(view) !;
-    view = view.parent !;
+
+    allowPrivateServices = isComponentView(searchView);
+    elDef = viewParentEl(searchView) !;
+    searchView = searchView.parent !;
+
+    if (depDef.flags & DepFlags.Self) {
+      searchView = null;
+    }
   }
 
   const value = startView.root.injector.get(depDef.token, NOT_FOUND_CHECK_ONLY_ELEMENT_INJECTOR);
@@ -437,10 +446,7 @@ function updateProp(
   providerData.instance[propName] = value;
   if (def.flags & NodeFlags.OnChanges) {
     changes = changes || {};
-    let oldValue = view.oldValues[def.bindingIndex + bindingIdx];
-    if (oldValue instanceof WrappedValue) {
-      oldValue = oldValue.wrapped;
-    }
+    const oldValue = WrappedValue.unwrap(view.oldValues[def.bindingIndex + bindingIdx]);
     const binding = def.bindings[bindingIdx];
     changes[binding.nonMinifiedName !] =
         new SimpleChange(oldValue, value, (view.state & ViewState.FirstCheck) !== 0);
@@ -459,7 +465,7 @@ function updateProp(
 // expected nodeIndex which a ngOnInit should be called. When sending
 // ngAfterContentInit and ngAfterViewInit it is the expected count of
 // ngAfterContentInit or ngAfterViewInit methods that have been called. This
-// ensure that dispite being called recursively or after picking up after an
+// ensure that despite being called recursively or after picking up after an
 // exception, the ngAfterContentInit or ngAfterViewInit will be called on the
 // correct nodes. Consider for example, the following (where E is an element
 // and D is a directive)

@@ -17,14 +17,11 @@ import {ViewEncapsulation} from './view';
 /**
  * Type of the Directive decorator / constructor function.
  *
- * @stable
+ *
  */
 export interface DirectiveDecorator {
   /**
-   * @whatItDoes Marks a class as an Angular directive and collects directive configuration
-   * metadata.
-   *
-   * @howToUse
+   * @usageNotes
    *
    * ```
    * import {Directive} from '@angular/core';
@@ -37,6 +34,9 @@ export interface DirectiveDecorator {
    * ```
    *
    * @description
+   *
+   * Marks a class as an Angular directive and collects directive configuration
+   * metadata.
    *
    * Directive decorator allows you to mark a class as an Angular directive and provide additional
    * metadata that determines how the directive should be processed, instantiated and used at
@@ -65,7 +65,7 @@ export interface DirectiveDecorator {
    * * **queries** -  configure queries that can be injected into the component
    * * **selector** - css selector that identifies this component in a template
    *
-   * @stable
+   *
    * @Annotation
    */
   (obj: Directive): TypeDecorator;
@@ -148,7 +148,7 @@ export interface Directive {
    * @Component({
    *   selector: 'app',
    *   template: `
-   *     <bank-account bank-name="RBC" account-id="4747"></bank-account>
+   *     <bank-account bankName="RBC" account-id="4747"></bank-account>
    *   `
    * })
    * class App {}
@@ -397,7 +397,7 @@ export interface Directive {
 /**
  * Directive decorator and metadata.
  *
- * @stable
+ *
  * @Annotation
  */
 export const Directive: DirectiveDecorator =
@@ -406,18 +406,18 @@ export const Directive: DirectiveDecorator =
 /**
  * Type of the Component decorator / constructor function.
  *
- * @stable
+ *
  */
 export interface ComponentDecorator {
   /**
-   * @whatItDoes Marks a class as an Angular component and collects component configuration
-   * metadata.
-   *
-   * @howToUse
+   * @usageNotes
    *
    * {@example core/ts/metadata/metadata.ts region='component'}
    *
    * @description
+   * Marks a class as an Angular component and collects component configuration
+   * metadata.
+   *
    * Component decorator allows you to mark a class as an Angular component and provide additional
    * metadata that determines how the component should be processed, instantiated and used at
    * runtime.
@@ -462,7 +462,7 @@ export interface ComponentDecorator {
    *
    * {@example core/ts/metadata/metadata.ts region='component'}
    *
-   * @stable
+   *
    * @Annotation
    */
   (obj: Component): TypeDecorator;
@@ -475,7 +475,7 @@ export interface ComponentDecorator {
 /**
  * Type of the Component metadata.
  *
- * @stable
+ *
  */
 export interface Component extends Directive {
   /**
@@ -693,13 +693,13 @@ export interface Component extends Directive {
    * - text nodes are left as-is inside HTML tags where whitespaces are significant (ex. `<pre>`,
    *   `<textarea>`).
    *
-   * Described transformations can (potentially) influence DOM nodes layout so the
-   * `preserveWhitespaces` option is `true` be default (no whitespace removal).
-   * In Angular 5 you need to opt-in for whitespace removal (but we might revisit the default
-   * setting in Angular 6 or later). If you want to change the default setting for all components
-   * in your application you can use the `preserveWhitespaces` option of the AOT compiler.
+   * Described transformations may (potentially) influence DOM nodes layout. However, the impact
+   * should so be minimal. That's why starting from Angular 6, the
+   * `preserveWhitespaces` option is `false` by default (whitespace removal).
+   * If you want to change the default setting for all components in your application you can use
+   * the `preserveWhitespaces` option of the AOT compiler.
    *
-   * Even if you decide to opt-in for whitespace removal there are ways of preserving whitespaces
+   * Even with the default behavior of whitespace removal, there are ways of preserving whitespaces
    * in certain fragments of a template. You can either exclude entire DOM sub-tree by using the
    * `ngPreserveWhitespaces` attribute, ex.:
    *
@@ -749,7 +749,7 @@ export interface Component extends Directive {
 /**
  * Component decorator and metadata.
  *
- * @stable
+ *
  * @Annotation
  */
 export const Component: ComponentDecorator = makeDecorator(
@@ -759,7 +759,7 @@ export const Component: ComponentDecorator = makeDecorator(
 /**
  * Type of the Pipe decorator / constructor function.
  *
- * @stable
+ *
  */
 export interface PipeDecorator {
   /**
@@ -780,17 +780,40 @@ export interface PipeDecorator {
 /**
  * Type of the Pipe metadata.
  *
- * @stable
+ *
  */
 export interface Pipe {
+  /**
+   * Name of the pipe.
+   *
+   * The pipe name is used in template bindings. For example if a pipe is named
+   * `myPipe` then it would be used in the template binding expression like
+   * so:  `{{ exp | myPipe }}`.
+   */
   name: string;
+
+  /**
+   * If Pipe is pure (its output depends only on its input.)
+   *
+   * Normally pipe's `transform` method is only invoked when the inputs to pipe`s
+   * `transform` method change. If the pipe has internal state (it's result are
+   * dependent on state other than its arguments) than set `pure` to `false` so
+   * that the pipe is invoked on each change-detection even if the arguments to the
+   * pipe do not change.
+   */
   pure?: boolean;
 }
 
 /**
  * Pipe decorator and metadata.
  *
- * @stable
+ * Use the `@Pipe` annotation to declare that a given class is a pipe. A pipe
+ * class must also implement {@link PipeTransform} interface.
+ *
+ * To use the pipe include a reference to the pipe class in
+ * {@link NgModule#declarations}.
+ *
+ *
  * @Annotation
  */
 export const Pipe: PipeDecorator = makeDecorator('Pipe', (p: Pipe) => ({pure: true, ...p}));
@@ -799,7 +822,7 @@ export const Pipe: PipeDecorator = makeDecorator('Pipe', (p: Pipe) => ({pure: tr
 /**
  * Type of the Input decorator / constructor function.
  *
- * @stable
+ *
  */
 export interface InputDecorator {
   /**
@@ -834,13 +857,13 @@ export interface InputDecorator {
    * @Component({
    *   selector: 'app',
    *   template: `
-   *     <bank-account bank-name="RBC" account-id="4747"></bank-account>
+   *     <bank-account bankName="RBC" account-id="4747"></bank-account>
    *   `
    * })
    *
    * class App {}
    * ```
-   * @stable
+   *
    */
   (bindingPropertyName?: string): any;
   new (bindingPropertyName?: string): any;
@@ -849,7 +872,7 @@ export interface InputDecorator {
 /**
  * Type of the Input metadata.
  *
- * @stable
+ *
  */
 export interface Input {
   /**
@@ -861,7 +884,7 @@ export interface Input {
 /**
  * Input decorator and metadata.
  *
- * @stable
+ *
  * @Annotation
  */
 export const Input: InputDecorator =
@@ -870,7 +893,7 @@ export const Input: InputDecorator =
 /**
  * Type of the Output decorator / constructor function.
  *
- * @stable
+ *
  */
 export interface OutputDecorator {
   /**
@@ -911,7 +934,7 @@ export interface OutputDecorator {
    *   everyFiveSeconds() { console.log('five seconds'); }
    * }
    * ```
-   * @stable
+   *
    */
   (bindingPropertyName?: string): any;
   new (bindingPropertyName?: string): any;
@@ -920,14 +943,14 @@ export interface OutputDecorator {
 /**
  * Type of the Output metadata.
  *
- * @stable
+ *
  */
 export interface Output { bindingPropertyName?: string; }
 
 /**
  * Output decorator and metadata.
  *
- * @stable
+ *
  * @Annotation
  */
 export const Output: OutputDecorator =
@@ -937,7 +960,7 @@ export const Output: OutputDecorator =
 /**
  * Type of the HostBinding decorator / constructor function.
  *
- * @stable
+ *
  */
 export interface HostBindingDecorator {
   /**
@@ -971,7 +994,7 @@ export interface HostBindingDecorator {
    *   prop;
    * }
    * ```
-   * @stable
+   *
    */
   (hostPropertyName?: string): any;
   new (hostPropertyName?: string): any;
@@ -980,14 +1003,14 @@ export interface HostBindingDecorator {
 /**
  * Type of the HostBinding metadata.
  *
- * @stable
+ *
  */
 export interface HostBinding { hostPropertyName?: string; }
 
 /**
  * HostBinding decorator and metadata.
  *
- * @stable
+ *
  * @Annotation
  */
 export const HostBinding: HostBindingDecorator =
@@ -997,7 +1020,7 @@ export const HostBinding: HostBindingDecorator =
 /**
  * Type of the HostListener decorator / constructor function.
  *
- * @stable
+ *
  */
 export interface HostListenerDecorator {
   /**
@@ -1029,7 +1052,7 @@ export interface HostListenerDecorator {
    * })
    * class App {}
    * ```
-   * @stable
+   *
    * @Annotation
    */
   (eventName: string, args?: string[]): any;
@@ -1039,7 +1062,7 @@ export interface HostListenerDecorator {
 /**
  * Type of the HostListener metadata.
  *
- * @stable
+ *
  */
 export interface HostListener {
   eventName?: string;
@@ -1049,7 +1072,7 @@ export interface HostListener {
 /**
  * HostListener decorator and metadata.
  *
- * @stable
+ *
  * @Annotation
  */
 export const HostListener: HostListenerDecorator =

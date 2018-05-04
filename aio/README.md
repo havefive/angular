@@ -4,7 +4,7 @@ Everything in this folder is part of the documentation project. This includes
 
 * the web site for displaying the documentation
 * the dgeni configuration for converting source files to rendered files that can be viewed in the web site.
-* the tooling for setting up examples for development; and generating plunkers and zip files from the examples.
+* the tooling for setting up examples for development; and generating live-example and zip files from the examples.
 
 ## Developer tasks
 
@@ -13,7 +13,7 @@ You should run all these tasks from the `angular/aio` folder.
 Here are the most important tasks you might need to use:
 
 * `yarn` - install all the dependencies.
-* `yarn setup` - install all the dependencies, boilerplate, plunkers, zips and run dgeni on the docs.
+* `yarn setup` - install all the dependencies, boilerplate, stackblitz, zips and run dgeni on the docs.
 * `yarn setup-local` - same as `setup`, but use the locally built Angular packages for aio and docs examples boilerplate.
 
 * `yarn build` - create a production build of the application (after installing dependencies, boilerplate, etc).
@@ -22,7 +22,8 @@ Here are the most important tasks you might need to use:
 * `yarn start` - run a development web server that watches the files; then builds the doc-viewer and reloads the page, as necessary.
 * `yarn serve-and-sync` - run both the `docs-watch` and `start` in the same console.
 * `yarn lint` - check that the doc-viewer code follows our style rules.
-* `yarn test` - watch all the source files, for the doc-viewer, and run all the unit tests when any change.
+* `yarn test` - run all the unit tests once.
+* `yarn test --watch` - watch all the source files, for the doc-viewer, and run all the unit tests when any change.
 * `yarn e2e` - run all the e2e tests for the doc-viewer.
 
 * `yarn docs` - generate all the docs from the source files.
@@ -32,7 +33,7 @@ Here are the most important tasks you might need to use:
 
 * `yarn boilerplate:add` - generate all the boilerplate code for the examples, so that they can be run locally. Add the option `--local` to use your local version of Angular contained in the "dist" folder.
 * `yarn boilerplate:remove` - remove all the boilerplate code that was added via `yarn boilerplate:add`.
-* `yarn generate-plunkers` - generate the plunker files that are used by the `live-example` tags in the docs.
+* `yarn generate-stackblitz` - generate the stackblitz files that are used by the `live-example` tags in the docs.
 * `yarn generate-zips` - generate the zip files from the examples. Zip available via the `live-example` tags in the docs.
 
 * `yarn example-e2e` - run all e2e tests for examples
@@ -68,6 +69,11 @@ The content is written in markdown.
 All other content is written using markdown in text files, located in the `angular/aio/content` folder.
 More specifically, there are sub-folders that contain particular types of content: guides, tutorial and marketing.
 
+* **Code examples**: code examples need to be testable to ensure their accuracy.
+Also, our examples have a specific look and feel and allow the user to copy the source code. For larger
+examples they are rendered in a tabbed interface (e.g. template, HTML, and TypeScript on separate
+tabs). Additionally, some are live examples, which provide links where the code can be edited, executed, and/or downloaded. For details on working with code examples, please read the [Code snippets](https://angular.io/guide/docs-style-guide#code-snippets), [Source code markup](https://angular.io/guide/docs-style-guide#source-code-markup), and [Live examples](https://angular.io/guide/docs-style-guide#live-examples) pages of the [Authors Style Guide](https://angular.io/guide/docs-style-guide).
+
 We use the [dgeni](https://github.com/angular/dgeni) tool to convert these files into docs that can be viewed in the doc-viewer.
 
 The [Authors Style Guide](https://angular.io/guide/docs-style-guide) prescribes guidelines for
@@ -100,8 +106,7 @@ The general setup is as follows:
 * Open a terminal, ensure the dependencies are installed; run an initial doc generation; then start the doc-viewer:
 
 ```bash
-yarn
-yarn docs
+yarn setup
 yarn start
 ```
 

@@ -6,10 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {C, D, E, NC, T, V, a, b, b1, b2, b3, b4, b5, b6, b7, b8, bV, cR, cr, defineComponent, e, k, p, r, s, t, v} from '../../src/render3/index';
-import {NO_CHANGE} from '../../src/render3/instructions';
+import {RenderFlags} from '@angular/core/src/render3';
 
-import {containerEl, renderToHtml} from './render_util';
+import {defineComponent, defineDirective} from '../../src/render3/index';
+import {NO_CHANGE, bind, container, containerRefreshEnd, containerRefreshStart, elementAttribute, elementClassNamed, elementEnd, elementProperty, elementStart, elementStyleNamed, embeddedViewEnd, embeddedViewStart, interpolation1, interpolation2, interpolation3, interpolation4, interpolation5, interpolation6, interpolation7, interpolation8, interpolationV, load, loadDirective, projection, projectionDef, text, textBinding} from '../../src/render3/instructions';
+import {LViewFlags} from '../../src/render3/interfaces/view';
+
+import {ComponentFixture, containerEl, renderToHtml} from './render_util';
 
 describe('render3 integration test', () => {
 
@@ -18,37 +21,47 @@ describe('render3 integration test', () => {
     it('should render basic template', () => {
       expect(renderToHtml(Template, {})).toEqual('<span title="Hello">Greetings</span>');
 
-      function Template(ctx: any, cm: boolean) {
-        if (cm) {
-          E(0, 'span', ['title', 'Hello']);
-          { T(1, 'Greetings'); }
-          e();
+      function Template(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'span', ['title', 'Hello']);
+          { text(1, 'Greetings'); }
+          elementEnd();
         }
       }
+      expect(ngDevMode).toHaveProperties({
+        firstTemplatePass: 1,
+        tNode: 1,
+        tView: 1,
+        rendererCreateElement: 1,
+      });
     });
 
     it('should render and update basic "Hello, World" template', () => {
       expect(renderToHtml(Template, 'World')).toEqual('<h1>Hello, World!</h1>');
       expect(renderToHtml(Template, 'New World')).toEqual('<h1>Hello, New World!</h1>');
 
-      function Template(name: string, cm: boolean) {
-        if (cm) {
-          E(0, 'h1');
-          { T(1); }
-          e();
+      function Template(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'h1');
+          { text(1); }
+          elementEnd();
         }
-        t(1, b1('Hello, ', name, '!'));
+        if (rf & RenderFlags.Update) {
+          textBinding(1, interpolation1('Hello, ', ctx, '!'));
+        }
       }
     });
   });
 
   describe('text bindings', () => {
     it('should render "undefined" as "" when used with `bind()`', () => {
-      function Template(name: string, cm: boolean) {
-        if (cm) {
-          T(0);
+      function Template(rf: RenderFlags, name: string) {
+        if (rf & RenderFlags.Create) {
+          text(0);
         }
-        t(0, b(name));
+        if (rf & RenderFlags.Update) {
+          textBinding(0, bind(name));
+        }
       }
 
       expect(renderToHtml(Template, 'benoit')).toEqual('benoit');
@@ -56,11 +69,13 @@ describe('render3 integration test', () => {
     });
 
     it('should render "null" as "" when used with `bind()`', () => {
-      function Template(name: string, cm: boolean) {
-        if (cm) {
-          T(0);
+      function Template(rf: RenderFlags, name: string) {
+        if (rf & RenderFlags.Create) {
+          text(0);
         }
-        t(0, b(name));
+        if (rf & RenderFlags.Update) {
+          textBinding(0, bind(name));
+        }
       }
 
       expect(renderToHtml(Template, 'benoit')).toEqual('benoit');
@@ -68,121 +83,98 @@ describe('render3 integration test', () => {
     });
 
     it('should support creation-time values in text nodes', () => {
-      function Template(value: string, cm: boolean) {
-        if (cm) {
-          T(0);
+      function Template(rf: RenderFlags, value: string) {
+        if (rf & RenderFlags.Create) {
+          text(0);
         }
-        t(0, cm ? value : NO_CHANGE);
+        if (rf & RenderFlags.Update) {
+          textBinding(0, rf & RenderFlags.Create ? value : NO_CHANGE);
+        }
       }
       expect(renderToHtml(Template, 'once')).toEqual('once');
       expect(renderToHtml(Template, 'twice')).toEqual('once');
-    });
-
-    it('should support creation-time bindings in interpolations', () => {
-      function Template(v: string, cm: boolean) {
-        if (cm) {
-          T(0);
-          T(1);
-          T(2);
-          T(3);
-          T(4);
-          T(5);
-          T(6);
-          T(7);
-          T(8);
-        }
-        t(0, b1('', cm ? v : NC, '|'));
-        t(1, b2('', v, '_', cm ? v : NC, '|'));
-        t(2, b3('', v, '_', v, '_', cm ? v : NC, '|'));
-        t(3, b4('', v, '_', v, '_', v, '_', cm ? v : NC, '|'));
-        t(4, b5('', v, '_', v, '_', v, '_', v, '_', cm ? v : NC, '|'));
-        t(5, b6('', v, '_', v, '_', v, '_', v, '_', v, '_', cm ? v : NC, '|'));
-        t(6, b7('', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', cm ? v : NC, '|'));
-        t(7, b8('', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', cm ? v : NC, '|'));
-        t(8, bV([
-            '', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', cm ? v : NC, ''
-          ]));
-      }
-      expect(renderToHtml(Template, 'a'))
-          .toEqual(
-              'a|a_a|a_a_a|a_a_a_a|a_a_a_a_a|a_a_a_a_a_a|a_a_a_a_a_a_a|a_a_a_a_a_a_a_a|a_a_a_a_a_a_a_a_a');
-      expect(renderToHtml(Template, 'A'))
-          .toEqual(
-              'a|A_a|A_A_a|A_A_A_a|A_A_A_A_a|A_A_A_A_A_a|A_A_A_A_A_A_a|A_A_A_A_A_A_A_a|A_A_A_A_A_A_A_A_a');
     });
 
   });
 
   describe('Siblings update', () => {
     it('should handle a flat list of static/bound text nodes', () => {
-      function Template(name: string, cm: boolean) {
-        if (cm) {
-          T(0, 'Hello ');
-          T(1);
-          T(2, '!');
+      function Template(rf: RenderFlags, name: string) {
+        if (rf & RenderFlags.Create) {
+          text(0, 'Hello ');
+          text(1);
+          text(2, '!');
         }
-        t(1, b(name));
+        if (rf & RenderFlags.Update) {
+          textBinding(1, bind(name));
+        }
       }
       expect(renderToHtml(Template, 'world')).toEqual('Hello world!');
       expect(renderToHtml(Template, 'monde')).toEqual('Hello monde!');
     });
 
     it('should handle a list of static/bound text nodes as element children', () => {
-      function Template(name: string, cm: boolean) {
-        if (cm) {
-          E(0, 'b');
+      function Template(rf: RenderFlags, name: string) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'b');
           {
-            T(1, 'Hello ');
-            T(2);
-            T(3, '!');
+            text(1, 'Hello ');
+            text(2);
+            text(3, '!');
           }
-          e();
+          elementEnd();
         }
-        t(2, b(name));
+        if (rf & RenderFlags.Update) {
+          textBinding(2, bind(name));
+        }
       }
       expect(renderToHtml(Template, 'world')).toEqual('<b>Hello world!</b>');
       expect(renderToHtml(Template, 'mundo')).toEqual('<b>Hello mundo!</b>');
     });
 
     it('should render/update text node as a child of a deep list of elements', () => {
-      function Template(name: string, cm: boolean) {
-        if (cm) {
-          E(0, 'b');
+      function Template(rf: RenderFlags, name: string) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'b');
           {
-            E(1, 'b');
+            elementStart(1, 'b');
             {
-              E(2, 'b');
+              elementStart(2, 'b');
               {
-                E(3, 'b');
-                { T(4); }
-                e();
+                elementStart(3, 'b');
+                { text(4); }
+                elementEnd();
               }
-              e();
+              elementEnd();
             }
-            e();
+            elementEnd();
           }
-          e();
+          elementEnd();
         }
-        t(4, b1('Hello ', name, '!'));
+        if (rf & RenderFlags.Update) {
+          textBinding(4, interpolation1('Hello ', name, '!'));
+        }
       }
       expect(renderToHtml(Template, 'world')).toEqual('<b><b><b><b>Hello world!</b></b></b></b>');
       expect(renderToHtml(Template, 'mundo')).toEqual('<b><b><b><b>Hello mundo!</b></b></b></b>');
     });
 
     it('should update 2 sibling elements', () => {
-      function Template(id: any, cm: boolean) {
-        if (cm) {
-          E(0, 'b');
+      function Template(rf: RenderFlags, id: any) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'b');
           {
-            E(1, 'span');
-            e();
-            E(2, 'span', ['class', 'foo']);
+            elementStart(1, 'span');
+            elementEnd();
+            elementStart(2, 'span', ['class', 'foo']);
             {}
-            e();
+            elementEnd();
           }
-          e();
+          elementEnd();
         }
-        a(2, 'id', b(id));
+        if (rf & RenderFlags.Update) {
+          elementAttribute(2, 'id', bind(id));
+        }
       }
       expect(renderToHtml(Template, 'foo'))
           .toEqual('<b><span></span><span class="foo" id="foo"></span></b>');
@@ -191,12 +183,12 @@ describe('render3 integration test', () => {
     });
 
     it('should handle sibling text node after element with child text node', () => {
-      function Template(ctx: any, cm: boolean) {
-        if (cm) {
-          E(0, 'p');
-          { T(1, 'hello'); }
-          e();
-          T(2, 'world');
+      function Template(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'p');
+          { text(1, 'hello'); }
+          elementEnd();
+          text(2, 'world');
         }
       }
 
@@ -210,46 +202,47 @@ describe('render3 integration test', () => {
       value = ' one';
 
       static ngComponentDef = defineComponent({
-        tag: 'todo',
-        template: function TodoTemplate(ctx: any, cm: boolean) {
-          if (cm) {
-            E(0, 'p');
+        type: TodoComponent,
+        selectors: [['todo']],
+        template: function TodoTemplate(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'p');
             {
-              T(1, 'Todo');
-              T(2);
+              text(1, 'Todo');
+              text(2);
             }
-            e();
+            elementEnd();
           }
-          t(2, b(ctx.value));
+          if (rf & RenderFlags.Update) {
+            textBinding(2, bind(ctx.value));
+          }
         },
         factory: () => new TodoComponent
       });
     }
 
+    const defs = [TodoComponent];
+
     it('should support a basic component template', () => {
-      function Template(ctx: any, cm: boolean) {
-        if (cm) {
-          E(0, TodoComponent);
-          e();
+      function Template(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'todo');
+          elementEnd();
         }
-        TodoComponent.ngComponentDef.h(1, 0);
-        TodoComponent.ngComponentDef.r(1, 0);
       }
 
-      expect(renderToHtml(Template, null)).toEqual('<todo><p>Todo one</p></todo>');
+      expect(renderToHtml(Template, null, defs)).toEqual('<todo><p>Todo one</p></todo>');
     });
 
     it('should support a component template with sibling', () => {
-      function Template(ctx: any, cm: boolean) {
-        if (cm) {
-          E(0, TodoComponent);
-          e();
-          T(2, 'two');
+      function Template(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'todo');
+          elementEnd();
+          text(1, 'two');
         }
-        TodoComponent.ngComponentDef.h(1, 0);
-        TodoComponent.ngComponentDef.r(1, 0);
       }
-      expect(renderToHtml(Template, null)).toEqual('<todo><p>Todo one</p></todo>two');
+      expect(renderToHtml(Template, null, defs)).toEqual('<todo><p>Todo one</p></todo>two');
     });
 
     it('should support a component template with component sibling', () => {
@@ -257,19 +250,15 @@ describe('render3 integration test', () => {
        * <todo></todo>
        * <todo></todo>
        */
-      function Template(ctx: any, cm: boolean) {
-        if (cm) {
-          E(0, TodoComponent);
-          e();
-          E(2, TodoComponent);
-          e();
+      function Template(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'todo');
+          elementEnd();
+          elementStart(1, 'todo');
+          elementEnd();
         }
-        TodoComponent.ngComponentDef.h(1, 0);
-        TodoComponent.ngComponentDef.h(3, 2);
-        TodoComponent.ngComponentDef.r(1, 0);
-        TodoComponent.ngComponentDef.r(3, 2);
       }
-      expect(renderToHtml(Template, null))
+      expect(renderToHtml(Template, null, defs))
           .toEqual('<todo><p>Todo one</p></todo><todo><p>Todo one</p></todo>');
     });
 
@@ -279,34 +268,53 @@ describe('render3 integration test', () => {
       class TodoComponentHostBinding {
         title = 'one';
         static ngComponentDef = defineComponent({
-          tag: 'todo',
+          type: TodoComponentHostBinding,
+          selectors: [['todo']],
           template: function TodoComponentHostBindingTemplate(
-              ctx: TodoComponentHostBinding, cm: boolean) {
-            if (cm) {
-              T(0);
+              rf: RenderFlags, ctx: TodoComponentHostBinding) {
+            if (rf & RenderFlags.Create) {
+              text(0);
             }
-            t(0, b(ctx.title));
+            if (rf & RenderFlags.Update) {
+              textBinding(0, bind(ctx.title));
+            }
           },
           factory: () => cmptInstance = new TodoComponentHostBinding,
           hostBindings: function(directiveIndex: number, elementIndex: number): void {
             // host bindings
-            p(elementIndex, 'title', b(D<TodoComponentHostBinding>(directiveIndex).title));
+            elementProperty(
+                elementIndex, 'title',
+                bind(loadDirective<TodoComponentHostBinding>(directiveIndex).title));
           }
         });
       }
 
-      function Template(ctx: any, cm: boolean) {
-        if (cm) {
-          E(0, TodoComponentHostBinding);
-          e();
+      function Template(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'todo');
+          elementEnd();
         }
-        TodoComponentHostBinding.ngComponentDef.h(1, 0);
-        TodoComponentHostBinding.ngComponentDef.r(1, 0);
       }
 
-      expect(renderToHtml(Template, {})).toEqual('<todo title="one">one</todo>');
+      const defs = [TodoComponentHostBinding];
+      expect(renderToHtml(Template, {}, defs)).toEqual('<todo title="one">one</todo>');
       cmptInstance !.title = 'two';
-      expect(renderToHtml(Template, {})).toEqual('<todo title="two">two</todo>');
+      expect(renderToHtml(Template, {}, defs)).toEqual('<todo title="two">two</todo>');
+    });
+
+    it('should support root component with host attribute', () => {
+      class HostAttributeComp {
+        static ngComponentDef = defineComponent({
+          type: HostAttributeComp,
+          selectors: [['host-attr-comp']],
+          factory: () => new HostAttributeComp(),
+          template: (rf: RenderFlags, ctx: HostAttributeComp) => {},
+          attributes: ['role', 'button']
+        });
+      }
+
+      const fixture = new ComponentFixture(HostAttributeComp);
+      expect(fixture.hostElement.getAttribute('role')).toEqual('button');
     });
 
     it('should support component with bindings in template', () => {
@@ -314,29 +322,30 @@ describe('render3 integration test', () => {
       class MyComp {
         name = 'Bess';
         static ngComponentDef = defineComponent({
-          tag: 'comp',
-          template: function MyCompTemplate(ctx: any, cm: boolean) {
-            if (cm) {
-              E(0, 'p');
-              { T(1); }
-              e();
+          type: MyComp,
+          selectors: [['comp']],
+          template: function MyCompTemplate(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              elementStart(0, 'p');
+              { text(1); }
+              elementEnd();
             }
-            t(1, b(ctx.name));
+            if (rf & RenderFlags.Update) {
+              textBinding(1, bind(ctx.name));
+            }
           },
           factory: () => new MyComp
         });
       }
 
-      function Template(ctx: any, cm: boolean) {
-        if (cm) {
-          E(0, MyComp);
-          e();
+      function Template(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'comp');
+          elementEnd();
         }
-        MyComp.ngComponentDef.h(1, 0);
-        MyComp.ngComponentDef.r(1, 0);
       }
 
-      expect(renderToHtml(Template, null)).toEqual('<comp><p>Bess</p></comp>');
+      expect(renderToHtml(Template, null, [MyComp])).toEqual('<comp><p>Bess</p></comp>');
     });
 
     it('should support a component with sub-views', () => {
@@ -348,23 +357,27 @@ describe('render3 integration test', () => {
       class MyComp {
         condition: boolean;
         static ngComponentDef = defineComponent({
-          tag: 'comp',
-          template: function MyCompTemplate(ctx: any, cm: boolean) {
-            if (cm) {
-              C(0);
+          type: MyComp,
+          selectors: [['comp']],
+          template: function MyCompTemplate(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              container(0);
             }
-            cR(0);
-            {
-              if (ctx.condition) {
-                if (V(0)) {
-                  E(0, 'div');
-                  { T(1, 'text'); }
-                  e();
+            if (rf & RenderFlags.Update) {
+              containerRefreshStart(0);
+              {
+                if (ctx.condition) {
+                  let rf1 = embeddedViewStart(0);
+                  if (rf1 & RenderFlags.Create) {
+                    elementStart(0, 'div');
+                    { text(1, 'text'); }
+                    elementEnd();
+                  }
+                  embeddedViewEnd();
                 }
-                v();
               }
+              containerRefreshEnd();
             }
-            cr();
           },
           factory: () => new MyComp,
           inputs: {condition: 'condition'}
@@ -372,19 +385,163 @@ describe('render3 integration test', () => {
       }
 
       /** <comp [condition]="condition"></comp> */
-      function Template(ctx: any, cm: boolean) {
-        if (cm) {
-          E(0, MyComp);
-          e();
+      function Template(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          elementStart(0, 'comp');
+          elementEnd();
         }
-        p(0, 'condition', b(ctx.condition));
-        MyComp.ngComponentDef.h(1, 0);
-        MyComp.ngComponentDef.r(1, 0);
+        if (rf & RenderFlags.Update) {
+          elementProperty(0, 'condition', bind(ctx.condition));
+        }
       }
 
-      expect(renderToHtml(Template, {condition: true})).toEqual('<comp><div>text</div></comp>');
-      expect(renderToHtml(Template, {condition: false})).toEqual('<comp></comp>');
+      const defs = [MyComp];
+      expect(renderToHtml(Template, {condition: true}, defs))
+          .toEqual('<comp><div>text</div></comp>');
+      expect(renderToHtml(Template, {condition: false}, defs)).toEqual('<comp></comp>');
 
+    });
+
+  });
+
+  describe('tree', () => {
+    interface Tree {
+      beforeLabel?: string;
+      subTrees?: Tree[];
+      afterLabel?: string;
+    }
+
+    interface ParentCtx {
+      beforeTree: Tree;
+      projectedTree: Tree;
+      afterTree: Tree;
+    }
+
+    function showLabel(rf: RenderFlags, ctx: {label: string | undefined}) {
+      if (rf & RenderFlags.Create) {
+        container(0);
+      }
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(0);
+        {
+          if (ctx.label != null) {
+            let rf1 = embeddedViewStart(0);
+            if (rf1 & RenderFlags.Create) {
+              text(0);
+            }
+            if (rf1 & RenderFlags.Update) {
+              textBinding(0, bind(ctx.label));
+            }
+            embeddedViewEnd();
+          }
+        }
+        containerRefreshEnd();
+      }
+    }
+
+    function showTree(rf: RenderFlags, ctx: {tree: Tree}) {
+      if (rf & RenderFlags.Create) {
+        container(0);
+        container(1);
+        container(2);
+      }
+      containerRefreshStart(0);
+      {
+        const rf0 = embeddedViewStart(0);
+        { showLabel(rf0, {label: ctx.tree.beforeLabel}); }
+        embeddedViewEnd();
+      }
+      containerRefreshEnd();
+      containerRefreshStart(1);
+      {
+        for (let subTree of ctx.tree.subTrees || []) {
+          const rf0 = embeddedViewStart(0);
+          { showTree(rf0, {tree: subTree}); }
+          embeddedViewEnd();
+        }
+      }
+      containerRefreshEnd();
+      containerRefreshStart(2);
+      {
+        const rf0 = embeddedViewStart(0);
+        { showLabel(rf0, {label: ctx.tree.afterLabel}); }
+        embeddedViewEnd();
+      }
+      containerRefreshEnd();
+    }
+
+    class ChildComponent {
+      beforeTree: Tree;
+      afterTree: Tree;
+      static ngComponentDef = defineComponent({
+        selectors: [['child']],
+        type: ChildComponent,
+        template: function ChildComponentTemplate(
+            rf: RenderFlags, ctx: {beforeTree: Tree, afterTree: Tree}) {
+          if (rf & RenderFlags.Create) {
+            projectionDef(0);
+            container(1);
+            projection(2, 0);
+            container(3);
+          }
+          containerRefreshStart(1);
+          {
+            const rf0 = embeddedViewStart(0);
+            { showTree(rf0, {tree: ctx.beforeTree}); }
+            embeddedViewEnd();
+          }
+          containerRefreshEnd();
+          containerRefreshStart(3);
+          {
+            const rf0 = embeddedViewStart(0);
+            { showTree(rf0, {tree: ctx.afterTree}); }
+            embeddedViewEnd();
+          }
+          containerRefreshEnd();
+        },
+        factory: () => new ChildComponent,
+        inputs: {beforeTree: 'beforeTree', afterTree: 'afterTree'}
+      });
+    }
+
+    function parentTemplate(rf: RenderFlags, ctx: ParentCtx) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'child');
+        { container(1); }
+        elementEnd();
+      }
+      if (rf & RenderFlags.Update) {
+        elementProperty(0, 'beforeTree', bind(ctx.beforeTree));
+        elementProperty(0, 'afterTree', bind(ctx.afterTree));
+        containerRefreshStart(1);
+        {
+          const rf0 = embeddedViewStart(0);
+          { showTree(rf0, {tree: ctx.projectedTree}); }
+          embeddedViewEnd();
+        }
+        containerRefreshEnd();
+      }
+    }
+
+    it('should work with a tree', () => {
+
+      const ctx: ParentCtx = {
+        beforeTree: {subTrees: [{beforeLabel: 'a'}]},
+        projectedTree: {beforeLabel: 'p'},
+        afterTree: {afterLabel: 'z'}
+      };
+      const defs = [ChildComponent];
+      expect(renderToHtml(parentTemplate, ctx, defs)).toEqual('<child>apz</child>');
+      ctx.projectedTree = {subTrees: [{}, {}, {subTrees: [{}, {}]}, {}]};
+      ctx.beforeTree.subTrees !.push({afterLabel: 'b'});
+      expect(renderToHtml(parentTemplate, ctx, defs)).toEqual('<child>abz</child>');
+      ctx.projectedTree.subTrees ![1].afterLabel = 'h';
+      expect(renderToHtml(parentTemplate, ctx, defs)).toEqual('<child>abhz</child>');
+      ctx.beforeTree.subTrees !.push({beforeLabel: 'c'});
+      expect(renderToHtml(parentTemplate, ctx, defs)).toEqual('<child>abchz</child>');
+
+      // To check the context easily:
+      // console.log(JSON.stringify(ctx));
     });
 
   });
@@ -395,12 +552,14 @@ describe('render3 integration test', () => {
       it('should support attribute bindings', () => {
         const ctx: {title: string | null} = {title: 'Hello'};
 
-        function Template(ctx: any, cm: boolean) {
-          if (cm) {
-            E(0, 'span');
-            e();
+        function Template(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'span');
+            elementEnd();
           }
-          a(0, 'title', b(ctx.title));
+          if (rf & RenderFlags.Update) {
+            elementAttribute(0, 'title', bind(ctx.title));
+          }
         }
 
         // initial binding
@@ -418,12 +577,14 @@ describe('render3 integration test', () => {
       it('should stringify values used attribute bindings', () => {
         const ctx: {title: any} = {title: NaN};
 
-        function Template(ctx: any, cm: boolean) {
-          if (cm) {
-            E(0, 'span');
-            e();
+        function Template(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'span');
+            elementEnd();
           }
-          a(0, 'title', b(ctx.title));
+          if (rf & RenderFlags.Update) {
+            elementAttribute(0, 'title', bind(ctx.title));
+          }
         }
 
         expect(renderToHtml(Template, ctx)).toEqual('<span title="NaN"></span>');
@@ -433,24 +594,35 @@ describe('render3 integration test', () => {
       });
 
       it('should update bindings', () => {
-        function Template(c: any, cm: boolean) {
-          if (cm) {
-            E(0, 'b');
-            e();
+        function Template(rf: RenderFlags, c: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'b');
+            elementEnd();
           }
-          a(0, 'a', bV(c));
-          a(0, 'a0', b(c[1]));
-          a(0, 'a1', b1(c[0], c[1], c[16]));
-          a(0, 'a2', b2(c[0], c[1], c[2], c[3], c[16]));
-          a(0, 'a3', b3(c[0], c[1], c[2], c[3], c[4], c[5], c[16]));
-          a(0, 'a4', b4(c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[16]));
-          a(0, 'a5', b5(c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[16]));
-          a(0, 'a6',
-            b6(c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[16]));
-          a(0, 'a7', b7(c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11],
-                        c[12], c[13], c[16]));
-          a(0, 'a8', b8(c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11],
-                        c[12], c[13], c[14], c[15], c[16]));
+          if (rf & RenderFlags.Update) {
+            elementAttribute(0, 'a', interpolationV(c));
+            elementAttribute(0, 'a0', bind(c[1]));
+            elementAttribute(0, 'a1', interpolation1(c[0], c[1], c[16]));
+            elementAttribute(0, 'a2', interpolation2(c[0], c[1], c[2], c[3], c[16]));
+            elementAttribute(0, 'a3', interpolation3(c[0], c[1], c[2], c[3], c[4], c[5], c[16]));
+            elementAttribute(
+                0, 'a4', interpolation4(c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[16]));
+            elementAttribute(
+                0, 'a5',
+                interpolation5(c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[16]));
+            elementAttribute(
+                0, 'a6', interpolation6(
+                             c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10],
+                             c[11], c[16]));
+            elementAttribute(
+                0, 'a7', interpolation7(
+                             c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10],
+                             c[11], c[12], c[13], c[16]));
+            elementAttribute(
+                0, 'a8', interpolation8(
+                             c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10],
+                             c[11], c[12], c[13], c[14], c[15], c[16]));
+          }
         }
         let args = ['(', 0, 'a', 1, 'b', 2, 'c', 3, 'd', 4, 'e', 5, 'f', 6, 'g', 7, ')'];
         expect(renderToHtml(Template, args))
@@ -469,29 +641,31 @@ describe('render3 integration test', () => {
       it('should not update DOM if context has not changed', () => {
         const ctx: {title: string | null} = {title: 'Hello'};
 
-        function Template(ctx: any, cm: boolean) {
-          if (cm) {
-            E(0, 'span');
-            C(1);
-            e();
+        function Template(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'span');
+            container(1);
+            elementEnd();
           }
-          a(0, 'title', b(ctx.title));
-          cR(1);
-          {
-            if (true) {
-              let cm1 = V(1);
-              {
-                if (cm1) {
-                  E(0, 'b');
-                  {}
-                  e();
+          if (rf & RenderFlags.Update) {
+            elementAttribute(0, 'title', bind(ctx.title));
+            containerRefreshStart(1);
+            {
+              if (true) {
+                let rf1 = embeddedViewStart(1);
+                {
+                  if (rf1 & RenderFlags.Create) {
+                    elementStart(0, 'b');
+                    {}
+                    elementEnd();
+                  }
+                  elementAttribute(0, 'title', bind(ctx.title));
                 }
-                a(0, 'title', b(ctx.title));
+                embeddedViewEnd();
               }
-              v();
             }
+            containerRefreshEnd();
           }
-          cr();
         }
 
         // initial binding
@@ -506,17 +680,55 @@ describe('render3 integration test', () => {
         expect(renderToHtml(Template, ctx))
             .toEqual('<span title="Hello"><b title="Goodbye"></b></span>');
       });
+
+      it('should support host attribute bindings', () => {
+        let hostBindingDir: HostBindingDir;
+
+        class HostBindingDir {
+          /* @HostBinding('attr.aria-label') */
+          label = 'some label';
+
+          static ngDirectiveDef = defineDirective({
+            type: HostBindingDir,
+            selectors: [['', 'hostBindingDir', '']],
+            factory: function HostBindingDir_Factory() {
+              return hostBindingDir = new HostBindingDir();
+            },
+            hostBindings: function HostBindingDir_HostBindings(dirIndex: number, elIndex: number) {
+              elementAttribute(
+                  elIndex, 'aria-label', bind(loadDirective<HostBindingDir>(dirIndex).label));
+            }
+          });
+        }
+
+        function Template(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'div', ['hostBindingDir', '']);
+            elementEnd();
+          }
+        }
+
+        const defs = [HostBindingDir];
+        expect(renderToHtml(Template, {}, defs))
+            .toEqual(`<div aria-label="some label" hostbindingdir=""></div>`);
+
+        hostBindingDir !.label = 'other label';
+        expect(renderToHtml(Template, {}, defs))
+            .toEqual(`<div aria-label="other label" hostbindingdir=""></div>`);
+      });
     });
 
     describe('elementStyle', () => {
 
       it('should support binding to styles', () => {
-        function Template(ctx: any, cm: boolean) {
-          if (cm) {
-            E(0, 'span');
-            e();
+        function Template(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'span');
+            elementEnd();
           }
-          s(0, 'border-color', b(ctx));
+          if (rf & RenderFlags.Update) {
+            elementStyleNamed(0, 'border-color', bind(ctx));
+          }
         }
 
         expect(renderToHtml(Template, 'red')).toEqual('<span style="border-color: red;"></span>');
@@ -526,12 +738,14 @@ describe('render3 integration test', () => {
       });
 
       it('should support binding to styles with suffix', () => {
-        function Template(ctx: any, cm: boolean) {
-          if (cm) {
-            E(0, 'span');
-            e();
+        function Template(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'span');
+            elementEnd();
           }
-          s(0, 'font-size', b(ctx), 'px');
+          if (rf & RenderFlags.Update) {
+            elementStyleNamed(0, 'font-size', bind(ctx), 'px');
+          }
         }
 
         expect(renderToHtml(Template, '100')).toEqual('<span style="font-size: 100px;"></span>');
@@ -543,12 +757,14 @@ describe('render3 integration test', () => {
     describe('elementClass', () => {
 
       it('should support CSS class toggle', () => {
-        function Template(ctx: any, cm: boolean) {
-          if (cm) {
-            E(0, 'span');
-            e();
+        function Template(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'span');
+            elementEnd();
           }
-          k(0, 'active', b(ctx));
+          if (rf & RenderFlags.Update) {
+            elementClassNamed(0, 'active', bind(ctx));
+          }
         }
 
         expect(renderToHtml(Template, true)).toEqual('<span class="active"></span>');
@@ -564,12 +780,14 @@ describe('render3 integration test', () => {
       });
 
       it('should work correctly with existing static classes', () => {
-        function Template(ctx: any, cm: boolean) {
-          if (cm) {
-            E(0, 'span', ['class', 'existing']);
-            e();
+        function Template(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'span', ['class', 'existing']);
+            elementEnd();
           }
-          k(0, 'active', b(ctx));
+          if (rf & RenderFlags.Update) {
+            elementClassNamed(0, 'active', bind(ctx));
+          }
         }
 
         expect(renderToHtml(Template, true)).toEqual('<span class="existing active"></span>');
@@ -586,40 +804,42 @@ describe('render3 integration test', () => {
        *    <div></div>
        *  % }
        */
-      function Template(ctx: any, cm: boolean) {
-        if (cm) {
-          C(0);
+      function Template(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          container(0);
         }
-        cR(0);
-        {
-          if (ctx.condition) {
-            if (V(0)) {
-              E(0, 'div');
-              {}
-              e();
+        if (rf & RenderFlags.Update) {
+          containerRefreshStart(0);
+          {
+            if (ctx.condition) {
+              let rf1 = embeddedViewStart(0);
+              if (rf1 & RenderFlags.Create) {
+                elementStart(0, 'div');
+                elementEnd();
+              }
+              embeddedViewEnd();
             }
-            v();
           }
+          containerRefreshEnd();
         }
-        cr();
       }
 
-      expect((Template as any).ngStaticData).toBeUndefined();
+      expect((Template as any).ngPrivateData).toBeUndefined();
 
       renderToHtml(Template, {condition: true});
 
-      const oldTemplateData = (Template as any).ngStaticData;
-      const oldContainerData = (oldTemplateData as any)[0];
-      const oldElementData = oldContainerData.containerStatic[0][0];
+      const oldTemplateData = (Template as any).ngPrivateData;
+      const oldContainerData = (oldTemplateData as any).data[0];
+      const oldElementData = oldContainerData.tViews[0][0];
       expect(oldContainerData).not.toBeNull();
       expect(oldElementData).not.toBeNull();
 
       renderToHtml(Template, {condition: false});
       renderToHtml(Template, {condition: true});
 
-      const newTemplateData = (Template as any).ngStaticData;
-      const newContainerData = (oldTemplateData as any)[0];
-      const newElementData = oldContainerData.containerStatic[0][0];
+      const newTemplateData = (Template as any).ngPrivateData;
+      const newContainerData = (oldTemplateData as any).data[0];
+      const newElementData = oldContainerData.tViews[0][0];
       expect(newTemplateData === oldTemplateData).toBe(true);
       expect(newContainerData === oldContainerData).toBe(true);
       expect(newElementData === oldElementData).toBe(true);

@@ -5,50 +5,25 @@
 * A basic understanding of [Bootstrapping](guide/bootstrapping).
 * Familiarity with [Providers](guide/providers).
 
-For a sample app using the app-wide singleton service
-that this page describes, see the
-<live-example name="ngmodules">live example</live-example>
-showcasing all the documented features of NgModules.
+For a sample app using the app-wide singleton service that this page describes, see the
+<live-example name="ngmodules"></live-example> showcasing all the documented features of NgModules.
 
 <hr />
 
 ## Providing a singleton service
 
-An injector created from a module definition will have services which are singletons with respect to that injector. To control the lifetime of services, one controls the creation and destruction of injectors. For example, a route will have an associated module. When the route is activated, an injector is created from that module as a child of the current injector. When you navigate away from the route, the injector is destroyed. This means that services declared in a route module will have a lifetime equal to that of the route. Similarly, services provided in an application module will have the same lifetime of the application, hence singleton. 
+There are two ways to make a service a singleton in Angular:
 
-The following example module is called, as a convention, `CoreModule`. This use of `@NgModule` creates organizational infrastructure and gives you
-a way of providing services from a designated NgModule.
+* Declare that the service should be provided in the application root.
+* Include the service in the `AppModule` or in a module that is only imported by the `AppModule`.
 
-<code-example path="providers/src/app/core/core.module.ts" region="" title="src/app/core/core.module.ts" linenums="false">
-</code-example>
+Beginning with Angular 6.0, the preferred way to create a singleton services is to specify on the service that it should be provided in the application root. This is done by setting `providedIn` to `root` on the service's `@Injectable` decorator:
 
-Here, `CoreModule` provides the `UserService`, and because `AppModule`
-imports `CoreModule`, any services that `CoreModule` provides are available
-throughout the app, because it is a root of the injector tree. It will also be a singleton because the injector lifetime of the `AppModule` is for the duration of the application.
+<code-example path="providers/src/app/user.service.0.ts"  title="src/app/user.service.0.ts" linenums="false"> </code-example>
 
-Angular registers the `UserService` provider with the app root
-injector, making a singleton instance of the `UserService`
-available to any component that needs it,
-whether that component is eagerly or lazily loaded.
 
-The root `AppModule` could register the `UserService` directly,
-but as the app grows, it could have other services and
-components like spinners, modals, and so on. To
-keep your app organized, consider using a module such as `CoreModule`.
-This technique simplifies the root `AppModule` in its
-capacity as orchestrator of the application as a whole.
-
-Now you can inject such services into components as needed. In terms of
-Angular NgModules, you only need to define the services in one `@NgModule`.
-See [JS Modules vs. NgModules](guide/ngmodule-vs-jsmodule) for
-more information on how to differentiate between the two.
-
-As a general rule, import modules with providers _exactly once_,
-preferably in the application's _root module_.
-That's also usually the best place to configure, wrap, and override them.
-
-For more detailed information on services, see
-[part 5](tutorial/toh-pt4) of the [Tour of Heroes tutorial](tutorial).
+For more detailed information on services, see the [Services](tutorial/toh-pt4) chapter of the
+[Tour of Heroes tutorial](tutorial).
 
 
 ## `forRoot()`
@@ -60,7 +35,7 @@ If a module provides both providers and declarations (components, directives, pi
 
 <!-- MH: show a simple example how to do that without going to deep into it. -->
 
-To make this more concrete, consider the `RouterModule` as an example. `RouterModule` needs to provide the `Router` service, as well as the `RouterOutlet` directive. `RouterModule` has to be imported by the root application module so that the application has a `Router` and the application has at least one `RouterOutlet`. It also must be imported by the individual route components so that they can place `RouterOutlet` directives into their template for sub-routes. 
+To make this more concrete, consider the `RouterModule` as an example. `RouterModule` needs to provide the `Router` service, as well as the `RouterOutlet` directive. `RouterModule` has to be imported by the root application module so that the application has a `Router` and the application has at least one `RouterOutlet`. It also must be imported by the individual route components so that they can place `RouterOutlet` directives into their template for sub-routes.
 
 If the `RouterModule` didn’t have `forRoot()` then each route component would instantiate a new `Router` instance, which would break the application as there can only be one `Router`. For this reason, the `RouterModule` has the `RouterOutlet` declaration so that it is available everywhere, but the `Router` provider is only in the `forRoot()`. The result is that the root application module imports `RouterModule.forRoot(...)` and gets a `Router`, whereas all route components import `RouterModule` which does not include the `Router`.
 
@@ -171,9 +146,6 @@ Here are the two files in their entirety for reference:
 ## More on NgModules
 
 You may also be interested in:
-* [Sharing NgModules](guide/singleton-services), which elaborates on the concepts covered on this page.
+* [Sharing Modules](guide/sharing-ngmodules), which elaborates on the concepts covered on this page.
 * [Lazy Loading Modules](guide/lazy-loading-ngmodules).
 * [NgModule FAQ](guide/ngmodule-faq).
-
-
-

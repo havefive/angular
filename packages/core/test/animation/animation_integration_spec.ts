@@ -5,12 +5,12 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {AUTO_STYLE, AnimationEvent, AnimationOptions, animate, animateChild, group, keyframes, query, state, style, transition, trigger, ɵPRE_STYLE as PRE_STYLE} from '@angular/animations';
-import {AnimationDriver, ɵAnimationEngine, ɵNoopAnimationDriver} from '@angular/animations/browser';
+import {AUTO_STYLE, AnimationEvent, AnimationOptions, AnimationPlayer, NoopAnimationPlayer, animate, animateChild, group, keyframes, query, state, style, transition, trigger, ɵPRE_STYLE as PRE_STYLE} from '@angular/animations';
+import {AnimationDriver, ɵAnimationEngine, ɵNoopAnimationDriver as NoopAnimationDriver} from '@angular/animations/browser';
 import {MockAnimationDriver, MockAnimationPlayer} from '@angular/animations/browser/testing';
-import {ChangeDetectorRef, Component, HostBinding, HostListener, RendererFactory2, ViewChild} from '@angular/core';
+import {ChangeDetectorRef, Component, HostBinding, HostListener, Inject, RendererFactory2, ViewChild} from '@angular/core';
 import {ɵDomRendererFactory2} from '@angular/platform-browser';
-import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
+import {ANIMATION_MODULE_TYPE, BrowserAnimationsModule, NoopAnimationsModule} from '@angular/platform-browser/animations';
 import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
 
 import {TestBed, fakeAsync, flushMicrotasks} from '../../testing';
@@ -36,6 +36,34 @@ const DEFAULT_COMPONENT_ID = '1';
         imports: [BrowserAnimationsModule]
       });
     });
+
+    describe('animation modules', function() {
+      it('should hint at BrowserAnimationsModule being used', () => {
+        TestBed.resetTestingModule();
+        TestBed.configureTestingModule(
+            {declarations: [SharedAnimationCmp], imports: [BrowserAnimationsModule]});
+
+        const fixture = TestBed.createComponent(SharedAnimationCmp);
+        const cmp = fixture.componentInstance;
+        expect(cmp.animationType).toEqual('BrowserAnimations');
+      });
+
+      it('should hint at NoopAnimationsModule being used', () => {
+        TestBed.resetTestingModule();
+        TestBed.configureTestingModule(
+            {declarations: [SharedAnimationCmp], imports: [NoopAnimationsModule]});
+
+        const fixture = TestBed.createComponent(SharedAnimationCmp);
+        const cmp = fixture.componentInstance;
+        expect(cmp.animationType).toEqual('NoopAnimations');
+      });
+    });
+
+    @Component({template: '<p>template text</p>'})
+    class SharedAnimationCmp {
+      constructor(@Inject(ANIMATION_MODULE_TYPE) public animationType: 'NoopAnimations'|
+                  'BrowserAnimations') {}
+    }
 
     describe('fakeAsync testing', () => {
       it('should only require one flushMicrotasks call to kick off animation callbacks',
@@ -112,6 +140,50 @@ const DEFAULT_COMPONENT_ID = '1';
            flushMicrotasks();
            expect(cmp.log).toEqual(['start', 'done']);
          }));
+
+      it('should emit the correct totalTime value for a noop-animation', fakeAsync(() => {
+           @Component({
+             selector: 'cmp',
+             template: `
+                <div [@myAnimation]="exp" (@myAnimation.start)="cb($event)" (@myAnimation.done)="cb($event)"></div>
+          `,
+             animations: [
+               trigger(
+                   'myAnimation',
+                   [
+                     transition(
+                         '* => go',
+                         [
+                           animate('1s', style({opacity: 0})),
+                         ]),
+                   ]),
+             ]
+           })
+           class Cmp {
+             exp: any = false;
+             log: AnimationEvent[] = [];
+             cb(event: AnimationEvent) { this.log.push(event); }
+           }
+
+           TestBed.configureTestingModule({
+             declarations: [Cmp],
+             providers: [
+               {provide: AnimationDriver, useClass: NoopAnimationDriver},
+             ],
+           });
+
+           const fixture = TestBed.createComponent(Cmp);
+           const cmp = fixture.componentInstance;
+           cmp.exp = 'go';
+           fixture.detectChanges();
+           expect(cmp.log).toEqual([]);
+
+           flushMicrotasks();
+           expect(cmp.log.length).toEqual(2);
+           const [start, end] = cmp.log;
+           expect(start.totalTime).toEqual(1000);
+           expect(end.totalTime).toEqual(1000);
+         }));
     });
 
     describe('component fixture integration', () => {
@@ -166,7 +238,7 @@ const DEFAULT_COMPONENT_ID = '1';
              }
 
              TestBed.configureTestingModule({
-               providers: [{provide: AnimationDriver, useClass: ɵNoopAnimationDriver}],
+               providers: [{provide: AnimationDriver, useClass: NoopAnimationDriver}],
                declarations: [Cmp]
              });
 
@@ -257,12 +329,15 @@ const DEFAULT_COMPONENT_ID = '1';
 
       it('should allow a transition to use a function to determine what method to run', () => {
         let valueToMatch = '';
-        const transitionFn =
-            (fromState: string, toState: string) => { return toState == valueToMatch; };
+        let capturedElement: any;
+        const transitionFn = (fromState: string, toState: string, element: any) => {
+          capturedElement = element;
+          return toState == valueToMatch;
+        };
 
         @Component({
           selector: 'if-cmp',
-          template: '<div [@myAnimation]="exp"></div>',
+          template: '<div #element [@myAnimation]="exp"></div>',
           animations: [
             trigger('myAnimation', [transition(
                                        transitionFn,
@@ -270,6 +345,8 @@ const DEFAULT_COMPONENT_ID = '1';
           ]
         })
         class Cmp {
+          @ViewChild('element')
+          element: any;
           exp: any = '';
         }
 
@@ -279,11 +356,13 @@ const DEFAULT_COMPONENT_ID = '1';
         const cmp = fixture.componentInstance;
         valueToMatch = cmp.exp = 'something';
         fixture.detectChanges();
+        const element = cmp.element.nativeElement;
 
         let players = getLog();
         expect(players.length).toEqual(1);
         let [p1] = players;
         expect(p1.totalTime).toEqual(1234);
+        expect(capturedElement).toEqual(element);
         resetLog();
 
         valueToMatch = 'something-else';
@@ -293,6 +372,49 @@ const DEFAULT_COMPONENT_ID = '1';
         players = getLog();
         expect(players.length).toEqual(0);
       });
+
+      it('should allow a transition to use a function to determine what method to run and expose any parameter values',
+         () => {
+           const transitionFn =
+               (fromState: string, toState: string, element: any, params: {[key: string]: any}) => {
+                 return params['doMatch'] == true;
+               };
+
+           @Component({
+             selector: 'if-cmp',
+             template: '<div [@myAnimation]="{value:exp, params: {doMatch:doMatch}}"></div>',
+             animations: [
+               trigger(
+                   'myAnimation',
+                   [transition(
+                       transitionFn, [style({opacity: 0}), animate(3333, style({opacity: 1}))])]),
+             ]
+           })
+           class Cmp {
+             doMatch = false;
+             exp: any = '';
+           }
+
+           TestBed.configureTestingModule({declarations: [Cmp]});
+
+           const fixture = TestBed.createComponent(Cmp);
+           const cmp = fixture.componentInstance;
+           cmp.doMatch = true;
+           fixture.detectChanges();
+
+           let players = getLog();
+           expect(players.length).toEqual(1);
+           let [p1] = players;
+           expect(p1.totalTime).toEqual(3333);
+           resetLog();
+
+           cmp.doMatch = false;
+           cmp.exp = 'this-wont-match';
+           fixture.detectChanges();
+
+           players = getLog();
+           expect(players.length).toEqual(0);
+         });
 
       it('should allow a state value to be `0`', () => {
         @Component({
@@ -1330,6 +1452,117 @@ const DEFAULT_COMPONENT_ID = '1';
         expect(getDOM().hasStyle(cmp.element.nativeElement, 'background-color', 'green'))
             .toBeTruthy();
       });
+
+      it('should retain state styles when the underlying DOM structure changes even if there are no insert/remove animations',
+         () => {
+           @Component({
+             selector: 'ani-cmp',
+             template: `
+            <div class="item" *ngFor="let item of items" [@color]="colorExp">
+              {{ item }}
+            </div>
+          `,
+             animations: [trigger('color', [state('green', style({backgroundColor: 'green'}))])]
+           })
+           class Cmp {
+             public colorExp = 'green';
+             public items = [0, 1, 2, 3];
+
+             reorder() {
+               const temp = this.items[0];
+               this.items[0] = this.items[1];
+               this.items[1] = temp;
+             }
+           }
+
+           TestBed.configureTestingModule({declarations: [Cmp]});
+
+           const fixture = TestBed.createComponent(Cmp);
+           const cmp = fixture.componentInstance;
+           fixture.detectChanges();
+
+           let elements: HTMLElement[] = fixture.nativeElement.querySelectorAll('.item');
+           assertBackgroundColor(elements[0], 'green');
+           assertBackgroundColor(elements[1], 'green');
+           assertBackgroundColor(elements[2], 'green');
+           assertBackgroundColor(elements[3], 'green');
+
+           elements[0].title = '0a';
+           elements[1].title = '1a';
+
+           cmp.reorder();
+           fixture.detectChanges();
+
+           elements = fixture.nativeElement.querySelectorAll('.item');
+           assertBackgroundColor(elements[0], 'green');
+           assertBackgroundColor(elements[1], 'green');
+           assertBackgroundColor(elements[2], 'green');
+           assertBackgroundColor(elements[3], 'green');
+
+           function assertBackgroundColor(element: HTMLElement, color: string) {
+             expect(element.style.getPropertyValue('background-color')).toEqual(color);
+           }
+         });
+
+      it('should retain state styles when the underlying DOM structure changes even if there are insert/remove animations',
+         () => {
+           @Component({
+             selector: 'ani-cmp',
+             template: `
+            <div class="item" *ngFor="let item of items" [@color]="colorExp">
+              {{ item }}
+            </div>
+          `,
+             animations: [trigger(
+                 'color',
+                 [
+                   transition('* => *', animate(500)),
+                   state('green', style({backgroundColor: 'green'}))
+                 ])]
+           })
+           class Cmp {
+             public colorExp = 'green';
+             public items = [0, 1, 2, 3];
+
+             reorder() {
+               const temp = this.items[0];
+               this.items[0] = this.items[1];
+               this.items[1] = temp;
+             }
+           }
+
+           TestBed.configureTestingModule({declarations: [Cmp]});
+
+           const fixture = TestBed.createComponent(Cmp);
+           const cmp = fixture.componentInstance;
+           fixture.detectChanges();
+
+           getLog().forEach(p => p.finish());
+
+           let elements: HTMLElement[] = fixture.nativeElement.querySelectorAll('.item');
+           assertBackgroundColor(elements[0], 'green');
+           assertBackgroundColor(elements[1], 'green');
+           assertBackgroundColor(elements[2], 'green');
+           assertBackgroundColor(elements[3], 'green');
+
+           elements[0].title = '0a';
+           elements[1].title = '1a';
+
+           cmp.reorder();
+           fixture.detectChanges();
+
+           getLog().forEach(p => p.finish());
+
+           elements = fixture.nativeElement.querySelectorAll('.item');
+           assertBackgroundColor(elements[0], 'green');
+           assertBackgroundColor(elements[1], 'green');
+           assertBackgroundColor(elements[2], 'green');
+           assertBackgroundColor(elements[3], 'green');
+
+           function assertBackgroundColor(element: HTMLElement, color: string) {
+             expect(element.style.getPropertyValue('background-color')).toEqual(color);
+           }
+         });
 
       it('should animate removals of nodes to the `void` state for each animation trigger, but treat all auto styles as pre styles',
          () => {
@@ -2461,7 +2694,7 @@ const DEFAULT_COMPONENT_ID = '1';
            }
 
            TestBed.configureTestingModule({
-             providers: [{provide: AnimationDriver, useClass: ɵNoopAnimationDriver}],
+             providers: [{provide: AnimationDriver, useClass: NoopAnimationDriver}],
              declarations: [Cmp]
            });
 
@@ -2500,7 +2733,7 @@ const DEFAULT_COMPONENT_ID = '1';
            }
 
            TestBed.configureTestingModule({
-             providers: [{provide: AnimationDriver, useClass: ɵNoopAnimationDriver}],
+             providers: [{provide: AnimationDriver, useClass: NoopAnimationDriver}],
              declarations: [Cmp]
            });
 
@@ -2971,8 +3204,8 @@ const DEFAULT_COMPONENT_ID = '1';
              class Cmp {
                disableExp = false;
                exp = '';
-               startEvent: any;
-               doneEvent: any;
+               startEvent: AnimationEvent;
+               doneEvent: AnimationEvent;
              }
 
              TestBed.configureTestingModule({declarations: [Cmp]});
@@ -2988,14 +3221,17 @@ const DEFAULT_COMPONENT_ID = '1';
              cmp.exp = '1';
              fixture.detectChanges();
              flushMicrotasks();
-             expect(cmp.startEvent.totalTime).toEqual(0);
-             expect(cmp.doneEvent.totalTime).toEqual(0);
+             expect(cmp.startEvent.totalTime).toEqual(9876);
+             expect(cmp.startEvent.disabled).toBeTruthy();
+             expect(cmp.doneEvent.totalTime).toEqual(9876);
+             expect(cmp.doneEvent.disabled).toBeTruthy();
 
              cmp.exp = '2';
              cmp.disableExp = false;
              fixture.detectChanges();
              flushMicrotasks();
              expect(cmp.startEvent.totalTime).toEqual(9876);
+             expect(cmp.startEvent.disabled).toBeFalsy();
              // the done event isn't fired because it's an actual animation
            }));
 
@@ -3428,7 +3664,7 @@ const DEFAULT_COMPONENT_ID = '1';
       });
     });
   });
-});
+})();
 
 function assertHasParent(element: any, yes: boolean) {
   const parent = getDOM().parentElement(element);

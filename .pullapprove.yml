@@ -7,6 +7,8 @@
 #
 # alexeagle - Alex Eagle
 # alxhub - Alex Rickabaugh
+# andrewseguin - Andrew Seguin
+# brandonroberts - Brandon Roberts
 # brocco - Mike Brocchi
 # chuckjaz - Chuck Jazdzewski
 # filipesilva - Filipe Silva
@@ -44,6 +46,7 @@ groups:
   all:
     users: all
     required: 1
+    rejection_value: -999
     # In this group, your self-approval does not count
     author_approval:
       auto: false
@@ -67,6 +70,7 @@ groups:
           - "packages/*"
           - "tools/*"
     users:
+      - alexeagle
       - IgorMinar
       - mhevery
 
@@ -92,6 +96,7 @@ groups:
       - alexeagle #primary
       - chuckjaz
       - IgorMinar #fallback
+      - mhevery
       - vikerman #fallback
 
   build-and-ci:
@@ -149,7 +154,7 @@ groups:
         - "packages/compiler/src/i18n/*"
     users:
       - vicb #primary
-      - chuckjaz
+      - alxhub
       - IgorMinar #fallback
       - mhevery #fallback
 
@@ -158,7 +163,7 @@ groups:
       files:
         - "packages/compiler/*"
     users:
-      - chuckjaz #primary
+      - alxhub #primary
       - vicb
       - mhevery
       - IgorMinar #fallback
@@ -183,7 +188,7 @@ groups:
           - "packages/compiler-cli/src/ngtools*"
     users:
       - alexeagle
-      - chuckjaz
+      - alxhub
       - vicb
       - IgorMinar #fallback
       - mhevery #fallback
@@ -299,6 +304,17 @@ groups:
       - IgorMinar #fallback
       - mhevery #fallback
 
+  elements:
+    conditions:
+      files:
+        - "packages/elements/*"
+    users:
+      - andrewseguin #primary
+      - gkalpak
+      - robwormald
+      - IgorMinar #fallback
+      - mhevery #fallback
+
   benchpress:
     conditions:
       files:
@@ -337,6 +353,7 @@ groups:
       - petebacondarwin
       - gkalpak
       - IgorMinar
+      - brandonroberts
       - mhevery #fallback
 
   angular.io-marketing:
@@ -351,4 +368,5 @@ groups:
       - petebacondarwin
       - gkalpak
       - IgorMinar
+      - robwormald
       - mhevery #fallback

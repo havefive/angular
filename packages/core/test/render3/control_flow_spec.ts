@@ -6,36 +6,41 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {C, E, T, V, b, cR, cr, e, t, v} from '../../src/render3/index';
-
-import {renderToHtml} from './render_util';
+import {defineComponent} from '../../src/render3/definition';
+import {bind, container, containerRefreshEnd, containerRefreshStart, elementEnd, elementStart, embeddedViewEnd, embeddedViewStart, text, textBinding} from '../../src/render3/instructions';
+import {RenderFlags} from '../../src/render3/interfaces/definition';
+import {ComponentFixture, createComponent, renderToHtml} from './render_util';
 
 describe('JS control flow', () => {
   it('should work with if block', () => {
     const ctx: {message: string | null, condition: boolean} = {message: 'Hello', condition: true};
 
-    function Template(ctx: any, cm: boolean) {
-      if (cm) {
-        E(0, 'div');
-        { C(1); }
-        e();
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'div');
+        { container(1); }
+        elementEnd();
       }
-      cR(1);
-      {
-        if (ctx.condition) {
-          let cm1 = V(1);
-          {
-            if (cm1) {
-              E(0, 'span');
-              { T(1); }
-              e();
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(1);
+        {
+          if (ctx.condition) {
+            let rf1 = embeddedViewStart(1);
+            {
+              if (rf1 & RenderFlags.Create) {
+                elementStart(0, 'span');
+                { text(1); }
+                elementEnd();
+              }
+              if (rf1 & RenderFlags.Update) {
+                textBinding(1, bind(ctx.message));
+              }
             }
-            t(1, b(ctx.message));
+            embeddedViewEnd();
           }
-          v();
         }
       }
-      cr();
+      containerRefreshEnd();
     }
 
     expect(renderToHtml(Template, ctx)).toEqual('<div><span>Hello</span></div>');
@@ -62,40 +67,44 @@ describe('JS control flow', () => {
      *   % }
      * </div>
      */
-    function Template(ctx: any, cm: boolean) {
-      if (cm) {
-        E(0, 'div');
-        { C(1); }
-        e();
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'div');
+        { container(1); }
+        elementEnd();
       }
-      cR(1);
-      {
-        if (ctx.condition) {
-          let cm1 = V(1);
-          {
-            if (cm1) {
-              E(0, 'span');
-              { C(1); }
-              e();
-            }
-            cR(1);
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(1);
+        {
+          if (ctx.condition) {
+            let rf1 = embeddedViewStart(1);
             {
-              if (ctx.condition2) {
-                let cm2 = V(2);
+              if (rf1 & RenderFlags.Create) {
+                elementStart(0, 'span');
+                { container(1); }
+                elementEnd();
+              }
+              if (rf1 & RenderFlags.Update) {
+                containerRefreshStart(1);
                 {
-                  if (cm2) {
-                    T(0, 'Hello');
+                  if (ctx.condition2) {
+                    let rf2 = embeddedViewStart(2);
+                    {
+                      if (rf2 & RenderFlags.Create) {
+                        text(0, 'Hello');
+                      }
+                    }
+                    embeddedViewEnd();
                   }
                 }
-                v();
+                containerRefreshEnd();
               }
             }
-            cr();
+            embeddedViewEnd();
           }
-          v();
         }
+        containerRefreshEnd();
       }
-      cr();
     }
 
     expect(renderToHtml(Template, ctx)).toEqual('<div><span>Hello</span></div>');
@@ -125,40 +134,94 @@ describe('JS control flow', () => {
     expect(renderToHtml(Template, ctx)).toEqual('<div><span>Hello</span></div>');
   });
 
-  it('should work with containers with views as parents', () => {
-    function Template(ctx: any, cm: boolean) {
-      if (cm) {
-        E(0, 'div');
-        { T(1, 'hello'); }
-        e();
-        C(2);
+  it('should work with adjacent if blocks managing views in the same container', () => {
+
+    const ctx = {condition1: true, condition2: true, condition3: true};
+
+    /**
+    *   % if(ctx.condition1) {
+    *     1
+    *   % }; if(ctx.condition2) {
+    *     2
+    *   % }; if(ctx.condition3) {
+    *     3
+    *   % }
+    */
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        container(0);
       }
-      cR(2);
-      {
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(0);
         if (ctx.condition1) {
-          let cm0 = V(0);
-          {
-            if (cm0) {
-              C(0);
-            }
-            cR(0);
+          const rf1 = embeddedViewStart(1);
+          if (rf1 & RenderFlags.Create) {
+            text(0, '1');
+          }
+          embeddedViewEnd();
+        }  // can't have ; here due linting rules
+        if (ctx.condition2) {
+          const rf2 = embeddedViewStart(2);
+          if (rf2 & RenderFlags.Create) {
+            text(0, '2');
+          }
+          embeddedViewEnd();
+        }  // can't have ; here due linting rules
+        if (ctx.condition3) {
+          const rf3 = embeddedViewStart(3);
+          if (rf3 & RenderFlags.Create) {
+            text(0, '3');
+          }
+          embeddedViewEnd();
+        }
+        containerRefreshEnd();
+      }
+    }
+
+    expect(renderToHtml(Template, ctx)).toEqual('123');
+
+    ctx.condition2 = false;
+    expect(renderToHtml(Template, ctx)).toEqual('13');
+  });
+
+  it('should work with containers with views as parents', () => {
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'div');
+        { text(1, 'hello'); }
+        elementEnd();
+        container(2);
+      }
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(2);
+        {
+          if (ctx.condition1) {
+            let rf0 = embeddedViewStart(0);
             {
-              if (ctx.condition2) {
-                let cm0 = V(0);
+              if (rf0 & RenderFlags.Create) {
+                container(0);
+              }
+              if (rf0 & RenderFlags.Update) {
+                containerRefreshStart(0);
                 {
-                  if (cm0) {
-                    T(0, 'world');
+                  if (ctx.condition2) {
+                    let rf0 = embeddedViewStart(0);
+                    {
+                      if (rf0 & RenderFlags.Create) {
+                        text(0, 'world');
+                      }
+                    }
+                    embeddedViewEnd();
                   }
                 }
-                v();
+                containerRefreshEnd();
               }
             }
-            cr();
+            embeddedViewEnd();
           }
-          v();
         }
+        containerRefreshEnd();
       }
-      cr();
     }
 
     expect(renderToHtml(Template, {condition1: true, condition2: true}))
@@ -171,28 +234,32 @@ describe('JS control flow', () => {
   it('should work with loop block', () => {
     const ctx: {data: string[] | null} = {data: ['a', 'b', 'c']};
 
-    function Template(ctx: any, cm: boolean) {
-      if (cm) {
-        E(0, 'ul');
-        { C(1); }
-        e();
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'ul');
+        { container(1); }
+        elementEnd();
       }
-      cR(1);
-      {
-        for (let i = 0; i < ctx.data.length; i++) {
-          let cm1 = V(1);
-          {
-            if (cm1) {
-              E(0, 'li');
-              { T(1); }
-              e();
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(1);
+        {
+          for (let i = 0; i < ctx.data.length; i++) {
+            let rf1 = embeddedViewStart(1);
+            {
+              if (rf1 & RenderFlags.Create) {
+                elementStart(0, 'li');
+                { text(1); }
+                elementEnd();
+              }
+              if (rf1 & RenderFlags.Update) {
+                textBinding(1, bind(ctx.data[i]));
+              }
             }
-            t(1, b(ctx.data[i]));
+            embeddedViewEnd();
           }
-          v();
         }
+        containerRefreshEnd();
       }
-      cr();
     }
 
     expect(renderToHtml(Template, ctx)).toEqual('<ul><li>a</li><li>b</li><li>c</li></ul>');
@@ -217,38 +284,45 @@ describe('JS control flow', () => {
   it('should work with nested loop blocks', () => {
     const ctx: {data: string[][] | null} = {data: [['a', 'b', 'c'], ['m', 'n']]};
 
-    function Template(ctx: any, cm: boolean) {
-      if (cm) {
-        E(0, 'ul');
-        { C(1); }
-        e();
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'ul');
+        { container(1); }
+        elementEnd();
       }
-      cR(1);
-      {
-        for (let i = 0; i < ctx.data[0].length; i++) {
-          let cm1 = V(1);
-          {
-            if (cm1) {
-              E(0, 'li');
-              { C(1); }
-              e();
-            }
-            cR(1);
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(1);
+        {
+          for (let i = 0; i < ctx.data[0].length; i++) {
+            let rf1 = embeddedViewStart(1);
             {
-              ctx.data[1].forEach((value: string, ind: number) => {
-                if (V(2)) {
-                  T(0);
+              if (rf1 & RenderFlags.Create) {
+                elementStart(0, 'li');
+                { container(1); }
+                elementEnd();
+              }
+              if (rf1 & RenderFlags.Update) {
+                containerRefreshStart(1);
+                {
+                  ctx.data[1].forEach((value: string, ind: number) => {
+                    let rf2 = embeddedViewStart(2);
+                    if (rf2 & RenderFlags.Create) {
+                      text(0);
+                    }
+                    if (rf2 & RenderFlags.Update) {
+                      textBinding(0, bind(ctx.data[0][i] + value));
+                    }
+                    embeddedViewEnd();
+                  });
                 }
-                t(0, b(ctx.data[0][i] + value));
-                v();
-              });
+                containerRefreshEnd();
+              }
             }
-            cr();
+            embeddedViewEnd();
           }
-          v();
         }
+        containerRefreshEnd();
       }
-      cr();
     }
 
     expect(renderToHtml(Template, ctx)).toEqual('<ul><li>aman</li><li>bmbn</li><li>cmcn</li></ul>');
@@ -272,45 +346,52 @@ describe('JS control flow', () => {
      *   After
      * <div>
      */
-    function Template(ctx: any, cm: boolean) {
-      if (cm) {
-        E(0, 'div');
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'div');
         {
-          T(1, 'Before');
-          C(2);
-          T(3, 'After');
+          text(1, 'Before');
+          container(2);
+          text(3, 'After');
         }
-        e();
+        elementEnd();
       }
-      cR(2);
-      {
-        for (let i = 0; i < ctx.cafes.length; i++) {
-          let cm1 = V(1);
-          {
-            if (cm1) {
-              E(0, 'h2');
-              { T(1); }
-              e();
-              C(2);
-              T(3, '-');
-            }
-            t(1, b(ctx.cafes[i].name));
-            cR(2);
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(2);
+        {
+          for (let i = 0; i < ctx.cafes.length; i++) {
+            let rf1 = embeddedViewStart(1);
             {
-              for (let j = 0; j < ctx.cafes[i].entrees.length; j++) {
-                if (V(1)) {
-                  T(0);
+              if (rf1 & RenderFlags.Create) {
+                elementStart(0, 'h2');
+                { text(1); }
+                elementEnd();
+                container(2);
+                text(3, '-');
+              }
+              if (rf1 & RenderFlags.Update) {
+                textBinding(1, bind(ctx.cafes[i].name));
+                containerRefreshStart(2);
+                {
+                  for (let j = 0; j < ctx.cafes[i].entrees.length; j++) {
+                    let rf2 = embeddedViewStart(2);
+                    if (rf2 & RenderFlags.Create) {
+                      text(0);
+                    }
+                    if (rf2 & RenderFlags.Update) {
+                      textBinding(0, bind(ctx.cafes[i].entrees[j]));
+                    }
+                    embeddedViewEnd();
+                  }
                 }
-                t(0, b(ctx.cafes[i].entrees[j]));
-                v();
+                containerRefreshEnd();
               }
             }
-            cr();
+            embeddedViewEnd();
           }
-          v();
         }
+        containerRefreshEnd();
       }
-      cr();
     }
 
     const ctx = {
@@ -352,62 +433,71 @@ describe('JS control flow', () => {
      *   After
      * <div>
      */
-    function Template(ctx: any, cm: boolean) {
-      if (cm) {
-        E(0, 'div');
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'div');
         {
-          T(1, 'Before');
-          C(2);
-          T(3, 'After');
+          text(1, 'Before');
+          container(2);
+          text(3, 'After');
         }
-        e();
+        elementEnd();
       }
-      cR(2);
-      {
-        for (let i = 0; i < ctx.cafes.length; i++) {
-          let cm1 = V(1);
-          {
-            if (cm1) {
-              E(0, 'h2');
-              { T(1); }
-              e();
-              C(2);
-              T(3, '-');
-            }
-            t(1, b(ctx.cafes[i].name));
-            cR(2);
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(2);
+        {
+          for (let i = 0; i < ctx.cafes.length; i++) {
+            let rf1 = embeddedViewStart(1);
             {
-              for (let j = 0; j < ctx.cafes[i].entrees.length; j++) {
-                let cm1 = V(1);
+              if (rf1 & RenderFlags.Create) {
+                elementStart(0, 'h2');
+                { text(1); }
+                elementEnd();
+                container(2);
+                text(3, '-');
+              }
+              if (rf1 & RenderFlags.Update) {
+                textBinding(1, bind(ctx.cafes[i].name));
+                containerRefreshStart(2);
                 {
-                  if (cm1) {
-                    E(0, 'h3');
-                    { T(1); }
-                    e();
-                    C(2);
-                  }
-                  t(1, b(ctx.cafes[i].entrees[j].name));
-                  cR(2);
-                  {
-                    for (let k = 0; k < ctx.cafes[i].entrees[j].foods.length; k++) {
-                      if (V(1)) {
-                        T(0);
+                  for (let j = 0; j < ctx.cafes[i].entrees.length; j++) {
+                    let rf1 = embeddedViewStart(1);
+                    {
+                      if (rf1 & RenderFlags.Create) {
+                        elementStart(0, 'h3');
+                        { text(1); }
+                        elementEnd();
+                        container(2);
                       }
-                      t(0, b(ctx.cafes[i].entrees[j].foods[k]));
-                      v();
+                      if (rf1 & RenderFlags.Update) {
+                        textBinding(1, bind(ctx.cafes[i].entrees[j].name));
+                        containerRefreshStart(2);
+                        {
+                          for (let k = 0; k < ctx.cafes[i].entrees[j].foods.length; k++) {
+                            let rf2 = embeddedViewStart(1);
+                            if (rf2 & RenderFlags.Create) {
+                              text(0);
+                            }
+                            if (rf2 & RenderFlags.Update) {
+                              textBinding(0, bind(ctx.cafes[i].entrees[j].foods[k]));
+                            }
+                            embeddedViewEnd();
+                          }
+                        }
+                        containerRefreshEnd();
+                      }
                     }
+                    embeddedViewEnd();
                   }
-                  cr();
                 }
-                v();
+                containerRefreshEnd();
               }
             }
-            cr();
+            embeddedViewEnd();
           }
-          v();
         }
+        containerRefreshEnd();
       }
-      cr();
     }
 
     const ctx = {
@@ -442,37 +532,39 @@ describe('JS control flow', () => {
   it('should work with if/else blocks', () => {
     const ctx: {message: string | null, condition: boolean} = {message: 'Hello', condition: true};
 
-    function Template(ctx: any, cm: boolean) {
-      if (cm) {
-        E(0, 'div');
-        { C(1); }
-        e();
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'div');
+        { container(1); }
+        elementEnd();
       }
-      cR(1);
-      {
-        if (ctx.condition) {
-          let cm1 = V(1);
-          {
-            if (cm1) {
-              E(0, 'span');
-              { T(1, 'Hello'); }
-              e();
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(1);
+        {
+          if (ctx.condition) {
+            let rf1 = embeddedViewStart(1);
+            {
+              if (rf1 & RenderFlags.Create) {
+                elementStart(0, 'span');
+                { text(1, 'Hello'); }
+                elementEnd();
+              }
             }
-          }
-          v();
-        } else {
-          let cm2 = V(2);
-          {
-            if (cm2) {
-              E(0, 'div');
-              { T(1, 'Goodbye'); }
-              e();
+            embeddedViewEnd();
+          } else {
+            let rf2 = embeddedViewStart(2);
+            {
+              if (rf2) {
+                elementStart(0, 'div');
+                { text(1, 'Goodbye'); }
+                elementEnd();
+              }
             }
+            embeddedViewEnd();
           }
-          v();
         }
+        containerRefreshEnd();
       }
-      cr();
     }
 
     expect(renderToHtml(Template, ctx)).toEqual('<div><span>Hello</span></div>');
@@ -483,6 +575,144 @@ describe('JS control flow', () => {
     ctx.condition = true;
     expect(renderToHtml(Template, ctx)).toEqual('<div><span>Hello</span></div>');
   });
+
+  it('should work with sibling if blocks with children', () => {
+    let log: string[] = [];
+
+    // Intentionally duplicating the templates in test below so we are
+    // testing the behavior on firstTemplatePass for each of these tests
+    class Comp {
+      static ngComponentDef = defineComponent({
+        type: Comp,
+        selectors: [['comp']],
+        factory: () => {
+          log.push('comp!');
+          return new Comp();
+        },
+        template: function(rf: RenderFlags, ctx: Comp) {}
+      });
+    }
+
+    class App {
+      condition = true;
+      condition2 = true;
+
+      static ngComponentDef = defineComponent({
+        type: App,
+        selectors: [['app']],
+        factory: () => new App(),
+        template: function(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'div');
+            elementEnd();
+            container(1);
+            container(2);
+          }
+          if (rf & RenderFlags.Update) {
+            containerRefreshStart(1);
+            {
+              if (ctx.condition) {
+                let rf1 = embeddedViewStart(0);
+                if (rf1 & RenderFlags.Create) {
+                  elementStart(0, 'comp');
+                  elementEnd();
+                }
+                embeddedViewEnd();
+              }
+            }
+            containerRefreshEnd();
+            containerRefreshStart(2);
+            {
+              if (ctx.condition2) {
+                let rf1 = embeddedViewStart(0);
+                if (rf1 & RenderFlags.Create) {
+                  elementStart(0, 'comp');
+                  elementEnd();
+                }
+                embeddedViewEnd();
+              }
+            }
+            containerRefreshEnd();
+          }
+        },
+        directives: () => [Comp]
+      });
+    }
+
+    const fixture = new ComponentFixture(App);
+    expect(log).toEqual(['comp!', 'comp!']);
+  });
+
+  it('should work with a sibling if block that starts closed', () => {
+    let log: string[] = [];
+
+    // Intentionally duplicating the templates from above so we are
+    // testing the behavior on firstTemplatePass for each of these tests
+    class Comp {
+      static ngComponentDef = defineComponent({
+        type: Comp,
+        selectors: [['comp']],
+        factory: () => {
+          log.push('comp!');
+          return new Comp();
+        },
+        template: function(rf: RenderFlags, ctx: Comp) {}
+      });
+    }
+
+    class App {
+      condition = false;
+      condition2 = true;
+
+      static ngComponentDef = defineComponent({
+        type: App,
+        selectors: [['app']],
+        factory: () => new App(),
+        template: function(rf: RenderFlags, ctx: any) {
+          if (rf & RenderFlags.Create) {
+            elementStart(0, 'div');
+            elementEnd();
+            container(1);
+            container(2);
+          }
+          if (rf & RenderFlags.Update) {
+            containerRefreshStart(1);
+            {
+              if (ctx.condition) {
+                let rf1 = embeddedViewStart(0);
+                if (rf1 & RenderFlags.Create) {
+                  elementStart(0, 'comp');
+                  elementEnd();
+                }
+                embeddedViewEnd();
+              }
+            }
+            containerRefreshEnd();
+            containerRefreshStart(2);
+            {
+              if (ctx.condition2) {
+                let rf1 = embeddedViewStart(0);
+                if (rf1 & RenderFlags.Create) {
+                  elementStart(0, 'comp');
+                  elementEnd();
+                }
+                embeddedViewEnd();
+              }
+            }
+            containerRefreshEnd();
+          }
+        },
+        directives: () => [Comp]
+      });
+    }
+
+    const fixture = new ComponentFixture(App);
+    expect(log).toEqual(['comp!']);
+
+    fixture.component.condition = true;
+    fixture.update();
+    expect(log).toEqual(['comp!', 'comp!']);
+  });
 });
 
 describe('JS for loop', () => {
@@ -490,30 +720,47 @@ describe('JS for loop', () => {
     const ctx: {data1: string[] | null,
                 data2: number[] | null} = {data1: ['a', 'b', 'c'], data2: [1, 2]};
 
-    function Template(ctx: any, cm: boolean) {
-      if (cm) {
-        E(0, 'div');
-        { C(1); }
-        e();
+    /**
+     * <div>
+     *    % for (let i = 0; i < ctx.data1.length; i++) {
+     *        {{data1[i]}}
+     *    % } for (let j = 0; j < ctx.data2.length; j++) {
+     *        {{data1[j]}}
+     *    % }
+     * </div>
+     */
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'div');
+        { container(1); }
+        elementEnd();
       }
-      cR(1);
-      {
-        for (let i = 0; i < ctx.data1.length; i++) {
-          if (V(1)) {
-            T(0);
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(1);
+        {
+          for (let i = 0; i < ctx.data1.length; i++) {
+            let rf2 = embeddedViewStart(1);
+            if (rf2 & RenderFlags.Create) {
+              text(0);
+            }
+            if (rf2 & RenderFlags.Update) {
+              textBinding(0, bind(ctx.data1[i]));
+            }
+            embeddedViewEnd();
           }
-          t(0, b(ctx.data1[i]));
-          v();
-        }
-        for (let j = 0; j < ctx.data2.length; j++) {
-          if (V(2)) {
-            T(0);
+          for (let j = 0; j < ctx.data2.length; j++) {
+            let rf2 = embeddedViewStart(1);
+            if (rf2 & RenderFlags.Create) {
+              text(0);
+            }
+            if (rf2 & RenderFlags.Update) {
+              textBinding(0, bind(ctx.data2[j]));
+            }
+            embeddedViewEnd();
           }
-          t(0, b(ctx.data2[j]));
-          v();
         }
+        containerRefreshEnd();
       }
-      cr();
     }
 
     expect(renderToHtml(Template, ctx)).toEqual('<div>abc12</div>');
@@ -533,41 +780,45 @@ describe('function calls', () => {
   it('should work', () => {
     const ctx: {data: string[]} = {data: ['foo', 'bar']};
 
-    function spanify(ctx: {message: string | null}, cm: boolean) {
+    function spanify(rf: RenderFlags, ctx: {message: string | null}) {
       const message = ctx.message;
-      if (cm) {
-        E(0, 'span');
-        { T(1); }
-        e();
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'span');
+        { text(1); }
+        elementEnd();
       }
-      t(1, b(message));
+      if (rf & RenderFlags.Update) {
+        textBinding(1, bind(message));
+      }
     }
 
-    function Template(ctx: any, cm: boolean) {
-      if (cm) {
-        E(0, 'div');
+    function Template(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'div');
         {
-          T(1, 'Before');
-          C(2);
-          C(3);
-          T(4, 'After');
+          text(1, 'Before');
+          container(2);
+          container(3);
+          text(4, 'After');
         }
-        e();
+        elementEnd();
       }
-      cR(2);
-      {
-        let cm0 = V(0);
-        { spanify({message: ctx.data[0]}, cm0); }
-        v();
+      if (rf & RenderFlags.Update) {
+        containerRefreshStart(2);
+        {
+          let rf0 = embeddedViewStart(0);
+          { spanify(rf0, {message: ctx.data[0]}); }
+          embeddedViewEnd();
+        }
+        containerRefreshEnd();
+        containerRefreshStart(3);
+        {
+          let rf0 = embeddedViewStart(0);
+          { spanify(rf0, {message: ctx.data[1]}); }
+          embeddedViewEnd();
+        }
+        containerRefreshEnd();
       }
-      cr();
-      cR(3);
-      {
-        let cm0 = V(0);
-        { spanify({message: ctx.data[1]}, cm0); }
-        v();
-      }
-      cr();
     }
 
     expect(renderToHtml(Template, ctx))

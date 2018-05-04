@@ -7,38 +7,38 @@
  */
 
 import {LContainer} from './container';
-import {DirectiveDef} from './definition';
 import {LInjector} from './injector';
 import {LProjection} from './projection';
-import {LQuery} from './query';
-import {RComment, RElement, RText} from './renderer';
-import {LView} from './view';
+import {LQueries} from './query';
+import {RElement, RNode, RText} from './renderer';
+import {LView, TData, TView} from './view';
+
 
 
 /**
- * LNodeFlags corresponds to the LNode.flags property. It contains information
- * on how to map a particular set of bits in LNode.flags to the node type, directive
- * count, or directive starting index.
- *
- * For example, if you wanted to check the type of a certain node, you would mask
- * node.flags with TYPE_MASK and compare it to the value for a certain node type. e.g:
- *
- *```ts
- * if ((node.flags & LNodeFlags.TYPE_MASK) === LNodeFlags.Element) {...}
- *```
+ * LNodeType corresponds to the LNode.type property. It contains information
+ * on how to map a particular set of bits in LNode.flags to the node type.
  */
-export const enum LNodeFlags {
+export const enum LNodeType {
   Container = 0b00,
   Projection = 0b01,
   View = 0b10,
   Element = 0b11,
   ViewOrElement = 0b10,
-  SIZE_SKIP = 0b100,
-  SIZE_SHIFT = 2,
-  INDX_SHIFT = 12,
-  TYPE_MASK = 0b00000000000000000000000000000011,
-  SIZE_MASK = 0b00000000000000000000111111111100,
-  INDX_MASK = 0b11111111111111111111000000000000
+}
+
+/**
+ * Corresponds to the TNode.flags property.
+ */
+export const enum TNodeFlags {
+  /** The number of directives on this node is encoded on the least significant bits */
+  DirectiveCountMask = 0b00000000000000000000111111111111,
+
+  /** Then this bit is set when the node is a component */
+  isComponent = 0b1000000000000,
+
+  /** The index of the first directive on this node is encoded on the most significant bits  */
+  DirectiveStartingIndexShift = 13,
 }
 
 /**
@@ -58,25 +58,15 @@ export const enum LNodeFlags {
  * instructions.
  */
 export interface LNode {
-  /**
-   * This number stores three values using its bits:
-   *
-   * - the type of the node (first 2 bits)
-   * - the number of directives on that node (next 10 bits)
-   * - the starting index of the node's directives in the directives array (last 20 bits).
-   *
-   * The latter two values are necessary so DI can effectively search the directives associated
-   * with a node without searching the whole directives array.
-   */
-  flags: LNodeFlags;
+  /** The type of the node (see LNodeFlags) */
+  type: LNodeType;
 
   /**
    * The associated DOM node. Storing this allows us to:
    *  - append children to their element parents in the DOM (e.g. `parent.native.appendChild(...)`)
    *  - retrieve the sibling elements of text nodes whose creation / insertion has been delayed
-   *  - mark locations where child views should be inserted (for containers)
    */
-  readonly native: RElement|RText|RComment|null;
+  readonly native: RElement|RText|null|undefined;
 
   /**
    * We need a reference to a node's parent so we can append the node to its parent's native
@@ -116,17 +106,30 @@ export interface LNode {
   nodeInjector: LInjector|null;
 
   /**
-   * Optional `QueryState` used for tracking queries.
+   * Optional set of queries that track query-related events for this node.
    *
-   * If present the node creation/updates are reported to the `QueryState`.
+   * If present the node creation/updates are reported to the `LQueries`.
    */
-  query: LQuery|null;
+  queries: LQueries|null;
+
+  /**
+   * If this node is projected, pointer to the next node in the same projection parent
+   * (which is a container, an element, or a text node), or to the parent projection node
+   * if this is the last node in the projection.
+   * If this node is not projected, this field is null.
+   */
+  pNextOrParent: LNode|null;
 
   /**
    * Pointer to the corresponding TNode object, which stores static
    * data about this node.
    */
   tNode: TNode|null;
+
+  /**
+   * A pointer to a LContainerNode created by directives requesting ViewContainerRef
+   */
+  dynamicLContainerNode: LContainerNode|null;
 }
 
 
@@ -155,6 +158,7 @@ export interface LTextNode extends LNode {
   /** LTextNodes can be inside LElementNodes or inside LViewNodes. */
   readonly parent: LElementNode|LViewNode;
   readonly data: null;
+  dynamicLContainerNode: null;
 }
 
 /** Abstract node which contains root nodes of a view. */
@@ -166,18 +170,19 @@ export interface LViewNode extends LNode {
   /**  LViewNodes can only be added to LContainerNodes. */
   readonly parent: LContainerNode|null;
   readonly data: LView;
+  dynamicLContainerNode: null;
 }
 
 /** Abstract node container which contains other views. */
 export interface LContainerNode extends LNode {
-  /**
-   * This comment node is appended to the container's parent element to mark where
-   * in the DOM the container's child views should be added.
-   *
-   * If the container is a root node of a view, this comment will not be appended
-   * until the parent view is processed.
+  /*
+   * Caches the reference of the first native node following this container in the same native
+   * parent.
+   * This is reset to undefined in containerRefreshEnd.
+   * When it is undefined, it means the value has not been computed yet.
+   * Otherwise, it contains the result of findBeforeNode(container, null).
    */
-  readonly native: RComment;
+  native: RElement|RText|null|undefined;
   readonly data: LContainer;
   child: null;
   next: LContainerNode|LElementNode|LTextNode|LProjectionNode|null;
@@ -196,11 +201,8 @@ export interface LProjectionNode extends LNode {
 
   /** Projections can be added to elements or views. */
   readonly parent: LElementNode|LViewNode;
+  dynamicLContainerNode: null;
 }
-
-
-/** The type of the global ngStaticData array. */
-export type NgStaticData = (TNode | DirectiveDef<any>| null)[];
 
 /**
  * LNode binding data (flyweight) for a particular node that is shared between all templates
@@ -214,6 +216,17 @@ export type NgStaticData = (TNode | DirectiveDef<any>| null)[];
  * see: https://en.wikipedia.org/wiki/Flyweight_pattern for more on the Flyweight pattern
  */
 export interface TNode {
+  /**
+   * This number stores two values using its bits:
+   *
+   * - the number of directives on that node (first 12 bits)
+   * - the starting index of the node's directives in the directives array (last 20 bits).
+   *
+   * These two values are necessary so DI can effectively search the directives associated
+   * with a node without searching the whole directives array.
+   */
+  flags: TNodeFlags;
+
   /** The tag name associated with this node. */
   tagName: string|null;
 
@@ -250,41 +263,53 @@ export interface TNode {
    */
   localNames: (string|number)[]|null;
 
-  /**
-   * This property contains information about input properties that
-   * need to be set once from attribute data.
-   */
+  /** Information about input properties that need to be set once from attribute data. */
   initialInputs: InitialInputData|null|undefined;
 
-  /** Input data for all directives on this node. */
+  /**
+   * Input data for all directives on this node.
+   *
+   * - `undefined` means that the prop has not been initialized yet,
+   * - `null` means that the prop has been initialized but no inputs have been found.
+   */
   inputs: PropertyAliases|null|undefined;
 
-  /** Output data for all directives on this node. */
+  /**
+   * Output data for all directives on this node.
+   *
+   * - `undefined` means that the prop has not been initialized yet,
+   * - `null` means that the prop has been initialized but no outputs have been found.
+   */
   outputs: PropertyAliases|null|undefined;
 
   /**
-   * If this TNode corresponds to an LContainerNode, the container will
-   * need to have nested static data for each of its embedded views.
-   * Otherwise, nodes in embedded views with the same index as nodes
-   * in their parent views will overwrite each other, as they are in
-   * the same template.
+   * The TView or TViews attached to this node.
+   *
+   * If this TNode corresponds to an LContainerNode with inline views, the container will
+   * need to store separate static data for each of its view blocks (TView[]). Otherwise,
+   * nodes in inline views with the same index as nodes in their parent views will overwrite
+   * each other, as they are in the same template.
    *
    * Each index in this array corresponds to the static data for a certain
    * view. So if you had V(0) and V(1) in a container, you might have:
    *
    * [
-   *   [{tagName: 'div', attrs: ...}, null],     // V(0) ngData
-   *   [{tagName: 'button', attrs ...}, null]    // V(1) ngData
-   * ]
+   *   [{tagName: 'div', attrs: ...}, null],     // V(0) TView
+   *   [{tagName: 'button', attrs ...}, null]    // V(1) TView
+   *
+   * If this TNode corresponds to an LContainerNode with a template (e.g. structural
+   * directive), the template's TView will be stored here.
+   *
+   * If this TNode corresponds to an LElementNode, tViews will be null .
    */
-  containerStatic: (TNode|null)[][]|null;
+  tViews: TView|TView[]|null;
 }
 
-/** Static data for an LElementNode */
-export interface TElementNode extends TNode { containerStatic: null; }
+/** Static data for an LElementNode  */
+export interface TElementNode extends TNode { tViews: null; }
 
 /** Static data for an LContainerNode */
-export interface TContainerNode extends TNode { containerStatic: (TNode|null)[][]; }
+export interface TContainerNode extends TNode { tViews: TView|TView[]|null; }
 
 /**
  * This mapping is necessary so we can set input properties and output listeners
@@ -302,11 +327,10 @@ export type PropertyAliases = {
 };
 
 /**
- * The value in PropertyAliases.
+ * Store the runtime input or output names for all the directives.
  *
- * In each array:
- * Even indices: directive index
- * Odd indices: minified / internal name
+ * - Even indices: directive index
+ * - Odd indices: minified / internal name
  *
  * e.g. [0, 'change-minified']
  */

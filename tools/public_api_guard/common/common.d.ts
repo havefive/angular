@@ -1,51 +1,42 @@
-/** @stable */
 export declare const APP_BASE_HREF: InjectionToken<string>;
 
-/** @stable */
 export declare class AsyncPipe implements OnDestroy, PipeTransform {
     constructor(_ref: ChangeDetectorRef);
     ngOnDestroy(): void;
-    transform<T>(obj: Promise<T>): T | null;
-    transform<T>(obj: Observable<T>): T | null;
+    transform<T>(obj: Promise<T> | null | undefined): T | null;
+    transform<T>(obj: Observable<T> | null | undefined): T | null;
     transform<T>(obj: undefined): undefined;
     transform<T>(obj: null): null;
 }
 
-/** @stable */
 export declare class CommonModule {
 }
 
-/** @stable */
 export declare class CurrencyPipe implements PipeTransform {
     constructor(_locale: string);
-    transform(value: any, currencyCode?: string, display?: 'code' | 'symbol' | 'symbol-narrow' | boolean, digits?: string, locale?: string): string | null;
+    transform(value: any, currencyCode?: string, display?: 'code' | 'symbol' | 'symbol-narrow' | string | boolean, digitsInfo?: string, locale?: string): string | null;
 }
 
-/** @stable */
 export declare class DatePipe implements PipeTransform {
     constructor(locale: string);
     transform(value: any, format?: string, timezone?: string, locale?: string): string | null;
 }
 
-/** @stable */
 export declare class DecimalPipe implements PipeTransform {
     constructor(_locale: string);
-    transform(value: any, digits?: string, locale?: string): string | null;
+    transform(value: any, digitsInfo?: string, locale?: string): string | null;
 }
 
-/** @stable */
 export declare class DeprecatedCurrencyPipe implements PipeTransform {
     constructor(_locale: string);
     transform(value: any, currencyCode?: string, symbolDisplay?: boolean, digits?: string): string | null;
 }
 
-/** @stable */
 export declare class DeprecatedDatePipe implements PipeTransform {
     constructor(_locale: string);
     transform(value: any, pattern?: string): string | null;
 }
 
-/** @stable */
 export declare class DeprecatedDecimalPipe implements PipeTransform {
     constructor(_locale: string);
     transform(value: any, digits?: string): string | null;
@@ -55,14 +46,20 @@ export declare class DeprecatedDecimalPipe implements PipeTransform {
 export declare class DeprecatedI18NPipesModule {
 }
 
-/** @stable */
 export declare class DeprecatedPercentPipe implements PipeTransform {
     constructor(_locale: string);
     transform(value: any, digits?: string): string | null;
 }
 
-/** @stable */
 export declare const DOCUMENT: InjectionToken<Document>;
+
+export declare function formatCurrency(value: number, locale: string, currency: string, currencyCode?: string, digitsInfo?: string): string;
+
+export declare function formatDate(value: string | number | Date, format: string, locale: string, timezone?: string): string;
+
+export declare function formatNumber(value: number, locale: string, digitsInfo?: string): string;
+
+export declare function formatPercent(value: number, locale: string, digitsInfo?: string): string;
 
 /** @experimental */
 export declare enum FormatWidth {
@@ -79,7 +76,7 @@ export declare enum FormStyle {
 }
 
 /** @experimental */
-export declare function getCurrencySymbol(code: string, format: 'wide' | 'narrow'): string;
+export declare function getCurrencySymbol(code: string, format: 'wide' | 'narrow', locale?: string): string;
 
 /** @experimental */
 export declare function getLocaleCurrencyName(locale: string): string | null;
@@ -132,7 +129,9 @@ export declare function getLocaleTimeFormat(locale: string, width: FormatWidth):
 /** @experimental */
 export declare function getLocaleWeekEndRange(locale: string): [WeekDay, WeekDay];
 
-/** @stable */
+/** @experimental */
+export declare function getNumberOfCurrencyDigits(code: string): number;
+
 export declare class HashLocationStrategy extends LocationStrategy {
     constructor(_platformLocation: PlatformLocation, _baseHref?: string);
     back(): void;
@@ -172,23 +171,21 @@ export declare function isPlatformWorkerApp(platformId: Object): boolean;
 /** @experimental */
 export declare function isPlatformWorkerUi(platformId: Object): boolean;
 
-/** @stable */
 export declare class JsonPipe implements PipeTransform {
     transform(value: any): string;
 }
 
-/** @stable */
 export declare class Location {
     constructor(platformStrategy: LocationStrategy);
     back(): void;
     forward(): void;
-    go(path: string, query?: string): void;
+    go(path: string, query?: string, state?: any): void;
     isCurrentPathEqualTo(path: string, query?: string): boolean;
     normalize(url: string): string;
     path(includeHash?: boolean): string;
     prepareExternalUrl(url: string): string;
-    replaceState(path: string, query?: string): void;
-    subscribe(onNext: (value: PopStateEvent) => void, onThrow?: ((exception: any) => void) | null, onReturn?: (() => void) | null): ISubscription;
+    replaceState(path: string, query?: string, state?: any): void;
+    subscribe(onNext: (value: PopStateEvent) => void, onThrow?: ((exception: any) => void) | null, onReturn?: (() => void) | null): SubscriptionLike;
     static joinWithSlash(start: string, end: string): string;
     static normalizeQueryParams(params: string): string;
     static stripTrailingSlash(url: string): string;
@@ -199,6 +196,7 @@ export declare const LOCATION_INITIALIZED: InjectionToken<Promise<any>>;
 
 /** @experimental */
 export interface LocationChangeEvent {
+    state: any;
     type: string;
 }
 
@@ -207,7 +205,6 @@ export interface LocationChangeListener {
     (e: LocationChangeEvent): any;
 }
 
-/** @stable */
 export declare abstract class LocationStrategy {
     abstract back(): void;
     abstract forward(): void;
@@ -219,12 +216,10 @@ export declare abstract class LocationStrategy {
     abstract replaceState(state: any, title: string, url: string, queryParams: string): void;
 }
 
-/** @stable */
 export declare class LowerCasePipe implements PipeTransform {
     transform(value: string): string;
 }
 
-/** @stable */
 export declare class NgClass implements DoCheck {
     klass: string;
     ngClass: string | string[] | Set<string> | {
@@ -245,7 +240,6 @@ export declare class NgComponentOutlet implements OnChanges, OnDestroy {
     ngOnDestroy(): void;
 }
 
-/** @stable */
 export declare class NgForOf<T> implements DoCheck, OnChanges {
     ngForOf: NgIterable<T>;
     ngForTemplate: TemplateRef<NgForOfContext<T>>;
@@ -255,7 +249,6 @@ export declare class NgForOf<T> implements DoCheck, OnChanges {
     ngOnChanges(changes: SimpleChanges): void;
 }
 
-/** @stable */
 export declare class NgForOfContext<T> {
     $implicit: T;
     count: number;
@@ -268,15 +261,13 @@ export declare class NgForOfContext<T> {
     constructor($implicit: T, ngForOf: NgIterable<T>, index: number, count: number);
 }
 
-/** @stable */
 export declare class NgIf {
     ngIf: any;
-    ngIfElse: TemplateRef<NgIfContext>;
-    ngIfThen: TemplateRef<NgIfContext>;
+    ngIfElse: TemplateRef<NgIfContext> | null;
+    ngIfThen: TemplateRef<NgIfContext> | null;
     constructor(_viewContainer: ViewContainerRef, templateRef: TemplateRef<NgIfContext>);
 }
 
-/** @stable */
 export declare class NgIfContext {
     $implicit: any;
     ngIf: any;
@@ -287,7 +278,7 @@ export declare class NgLocaleLocalization extends NgLocalization {
     /** @deprecated */ protected deprecatedPluralFn: ((locale: string, value: string | number) => Plural) | null | undefined;
     protected locale: string;
     constructor(locale: string,
-        deprecatedPluralFn?: ((locale: string, value: string | number) => Plural) | null | undefined);
+        /** @deprecated */ deprecatedPluralFn?: ((locale: string, value: string | number) => Plural) | null | undefined);
     getPluralCategory(value: any, locale?: string): string;
 }
 
@@ -309,7 +300,6 @@ export declare class NgPluralCase {
     constructor(value: string, template: TemplateRef<Object>, viewContainer: ViewContainerRef, ngPlural: NgPlural);
 }
 
-/** @stable */
 export declare class NgStyle implements DoCheck {
     ngStyle: {
         [key: string]: string;
@@ -318,24 +308,20 @@ export declare class NgStyle implements DoCheck {
     ngDoCheck(): void;
 }
 
-/** @stable */
 export declare class NgSwitch {
     ngSwitch: any;
 }
 
-/** @stable */
 export declare class NgSwitchCase implements DoCheck {
     ngSwitchCase: any;
     constructor(viewContainer: ViewContainerRef, templateRef: TemplateRef<Object>, ngSwitch: NgSwitch);
     ngDoCheck(): void;
 }
 
-/** @stable */
 export declare class NgSwitchDefault {
     constructor(viewContainer: ViewContainerRef, templateRef: TemplateRef<Object>, ngSwitch: NgSwitch);
 }
 
-/** @stable */
 export declare class NgTemplateOutlet implements OnChanges {
     ngTemplateOutlet: TemplateRef<any>;
     ngTemplateOutletContext: Object;
@@ -369,7 +355,6 @@ export declare enum NumberSymbol {
     CurrencyGroup = 13,
 }
 
-/** @stable */
 export declare class PathLocationStrategy extends LocationStrategy {
     constructor(_platformLocation: PlatformLocation, href?: string);
     back(): void;
@@ -382,13 +367,11 @@ export declare class PathLocationStrategy extends LocationStrategy {
     replaceState(state: any, title: string, url: string, queryParams: string): void;
 }
 
-/** @stable */
 export declare class PercentPipe implements PipeTransform {
     constructor(_locale: string);
-    transform(value: any, digits?: string, locale?: string): string | null;
+    transform(value: any, digitsInfo?: string, locale?: string): string | null;
 }
 
-/** @stable */
 export declare abstract class PlatformLocation {
     readonly abstract hash: string;
     readonly abstract pathname: string;
@@ -415,6 +398,7 @@ export declare enum Plural {
 /** @experimental */
 export interface PopStateEvent {
     pop?: boolean;
+    state?: any;
     type?: string;
     url?: string;
 }
@@ -422,7 +406,6 @@ export interface PopStateEvent {
 /** @experimental */
 export declare function registerLocaleData(data: any, localeId?: string | any, extraData?: any): void;
 
-/** @stable */
 export declare class SlicePipe implements PipeTransform {
     transform(value: any, start: number, end?: number): any;
 }
@@ -433,7 +416,6 @@ export declare type Time = {
     minutes: number;
 };
 
-/** @stable */
 export declare class TitleCasePipe implements PipeTransform {
     transform(value: string): string;
 }
@@ -446,12 +428,10 @@ export declare enum TranslationWidth {
     Short = 3,
 }
 
-/** @stable */
 export declare class UpperCasePipe implements PipeTransform {
     transform(value: string): string;
 }
 
-/** @stable */
 export declare const VERSION: Version;
 
 /** @experimental */

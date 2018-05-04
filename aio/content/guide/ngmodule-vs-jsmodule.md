@@ -1,7 +1,7 @@
 # JavaScript Modules vs. NgModules
 
 #### Prerequisites
-A basic understanding of [Bootstrapping](guide/bootstrapping).
+A basic understanding of [JavaScript/ECMAScript modules](https://hacks.mozilla.org/2015/08/es6-in-depth-modules/).
 
 <hr>
 
@@ -12,14 +12,14 @@ though they organize it differently, Angular apps rely on both.
 
 In JavaScript, modules are individual files with JavaScript code in them. To make what’s in them available, you write an export statement, usually after the relevant code, like this:
 
-```javascript
+```typescript
 export class AppComponent { ... }
 ```
 
 Then, when you need that file’s code in another file, you import it like this:
 
-```javascript
-import { AppComponent }  from './app.component';
+```typescript
+import { AppComponent } from './app.component';
 ```
 
 JavaScript modules help you namespace, preventing accidental global variables.
@@ -27,37 +27,33 @@ JavaScript modules help you namespace, preventing accidental global variables.
 ## NgModules
 
 <!-- KW-- perMisko: let's discuss. This does not answer the question why it is different. Also, last sentence is confusing.-->
-NgModules are classes decorated with `@NgModule`. The `@NgModule` decorator’s `imports` array tells Angular what other NgModules the current module needs. The modules in the imports array are different than JavaScript modules because they are NgModules rather than regular JavaScript modules. Classes with an `@NgModule` decorator are by convention kept in their own files, but what makes them an `NgModule` isn’t being in their own file, like JavaScript modules; it’s the presence of `@NgModule` and its metadata.
+NgModules are classes decorated with `@NgModule`. The `@NgModule` decorator’s `imports` array tells Angular what other NgModules the current module needs. The modules in the `imports` array are different than JavaScript modules because they are NgModules rather than regular JavaScript modules. Classes with an `@NgModule` decorator are by convention kept in their own files, but what makes them an `NgModule` isn’t being in their own file, like JavaScript modules; it’s the presence of `@NgModule` and its metadata.
 
 The `AppModule` generated from the Angular CLI demonstrates both kinds of modules in action:
 
-```javascript
+```typescript
 /* These are JavaScript import statements. Angular doesn’t know anything about these. */
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { HttpModule } from '@angular/http';
 
 import { AppComponent } from './app.component';
 
 /* The @NgModule decorator lets Angular know that this is an NgModule. */
 @NgModule({
-declarations: [
-  AppComponent
-],
-imports: [     /* These are NgModule imports. */
-  BrowserModule,
-  FormsModule,
-  HttpModule
-],
-providers: [],
-bootstrap: [AppComponent]
+  declarations: [
+    AppComponent
+  ],
+  imports: [     /* These are NgModule imports. */
+    BrowserModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
 })
 export class AppModule { }
 ```
 
 
-The NgModule classes differ from JavaScript module classes in the following key ways:
+The NgModule classes differ from JavaScript module in the following key ways:
 
 * An NgModule bounds [declarable classes](guide/ngmodule-faq#q-declarable) only.
 Declarables are the only classes that matter to the [Angular compiler](guide/ngmodule-faq#q-angular-compiler).
@@ -76,5 +72,3 @@ For more information on NgModules, see:
 * [Bootstrapping](guide/bootstrapping).
 * [Frequently used modules](guide/frequent-ngmodules).
 * [Providers](guide/providers).
-
-

@@ -75,23 +75,24 @@ export function listenOnPlayer(
     callback: (event: any) => any) {
   switch (eventName) {
     case 'start':
-      player.onStart(() => callback(event && copyAnimationEvent(event, 'start', player.totalTime)));
+      player.onStart(() => callback(event && copyAnimationEvent(event, 'start', player)));
       break;
     case 'done':
-      player.onDone(() => callback(event && copyAnimationEvent(event, 'done', player.totalTime)));
+      player.onDone(() => callback(event && copyAnimationEvent(event, 'done', player)));
       break;
     case 'destroy':
-      player.onDestroy(
-          () => callback(event && copyAnimationEvent(event, 'destroy', player.totalTime)));
+      player.onDestroy(() => callback(event && copyAnimationEvent(event, 'destroy', player)));
       break;
   }
 }
 
 export function copyAnimationEvent(
-    e: AnimationEvent, phaseName?: string, totalTime?: number): AnimationEvent {
+    e: AnimationEvent, phaseName: string, player: AnimationPlayer): AnimationEvent {
+  const totalTime = player.totalTime;
+  const disabled = (player as any).disabled ? true : false;
   const event = makeAnimationEvent(
       e.element, e.triggerName, e.fromState, e.toState, phaseName || e.phaseName,
-      totalTime == undefined ? e.totalTime : totalTime);
+      totalTime == undefined ? e.totalTime : totalTime, disabled);
   const data = (e as any)['_data'];
   if (data != null) {
     (event as any)['_data'] = data;
@@ -101,8 +102,8 @@ export function copyAnimationEvent(
 
 export function makeAnimationEvent(
     element: any, triggerName: string, fromState: string, toState: string, phaseName: string = '',
-    totalTime: number = 0): AnimationEvent {
-  return {element, triggerName, fromState, toState, phaseName, totalTime};
+    totalTime: number = 0, disabled?: boolean): AnimationEvent {
+  return {element, triggerName, fromState, toState, phaseName, totalTime, disabled: !!disabled};
 }
 
 export function getOrSetAsInMap(
@@ -202,3 +203,12 @@ export function getBodyNode(): any|null {
 export const matchesElement = _matches;
 export const containsElement = _contains;
 export const invokeQuery = _query;
+
+export function hypenatePropsObject(object: {[key: string]: any}): {[key: string]: any} {
+  const newObj: {[key: string]: any} = {};
+  Object.keys(object).forEach(prop => {
+    const newProp = prop.replace(/([a-z])([A-Z])/g, '$1-$2');
+    newObj[newProp] = object[prop];
+  });
+  return newObj;
+}

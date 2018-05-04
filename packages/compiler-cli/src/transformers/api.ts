@@ -38,6 +38,8 @@ export function isNgDiagnostic(diagnostic: any): diagnostic is Diagnostic {
 }
 
 export interface CompilerOptions extends ts.CompilerOptions {
+  // NOTE: These comments and aio/content/guides/aot-compiler.md should be kept in sync.
+
   // Write statistics about compilation (e.g. total time, ...)
   // Note: this is the --diagnostics command line option from TS (which is @internal
   // on ts.CompilerOptions interface).
@@ -71,7 +73,7 @@ export interface CompilerOptions extends ts.CompilerOptions {
   // Whether to generate a flat module index of the given name and the corresponding
   // flat module metadata. This option is intended to be used when creating flat
   // modules similar to how `@angular/core` and `@angular/common` are packaged.
-  // When this option is used the `package.json` for the library should refered to the
+  // When this option is used the `package.json` for the library should referred to the
   // generated flat module index instead of the library index file. When using this
   // option only one .metadata.json file is produced that contains all the metadata
   // necessary for symbols exported from the library index.
@@ -96,6 +98,10 @@ export interface CompilerOptions extends ts.CompilerOptions {
   // will use this module name when importing symbols from the flat module. This is only
   // meaningful when `flatModuleOutFile` is also supplied. It is otherwise ignored.
   flatModuleId?: string;
+
+  // A prefix to insert in generated private symbols, e.g. for "my_prefix_" we
+  // would generate private symbols named like `ɵmy_prefix_a`.
+  flatModulePrivateSymbolPrefix?: string;
 
   // Whether to generate code for library code.
   // If true, produce .ngfactory.ts and .ngstyle.ts files for .d.ts inputs.
@@ -123,12 +129,12 @@ export interface CompilerOptions extends ts.CompilerOptions {
   // Print extra information while running the compiler
   trace?: boolean;
 
-  // Whether to enable support for <template> and the template attribute (false by default)
-  enableLegacyTemplate?: boolean;
-
   // Whether to enable lowering expressions lambdas and expressions in a reference value
   // position.
   disableExpressionLowering?: boolean;
+
+  // Disable TypeScript Version Check.
+  disableTypeScriptVersionCheck?: boolean;
 
   // Locale of the application
   i18nOutLocale?: string;
@@ -146,8 +152,8 @@ export interface CompilerOptions extends ts.CompilerOptions {
   // How to handle missing messages
   i18nInMissingTranslations?: 'error'|'warning'|'ignore';
 
-  // Whether to remove blank text nodes from compiled templates. It is `true` by default
-  // in Angular 5 and will be re-visited in Angular 6.
+  // Whether to remove blank text nodes from compiled templates. It is `false` by default starting
+  // from Angular 6.
   preserveWhitespaces?: boolean;
 
   /** generate all possible generated files  */
@@ -158,6 +164,27 @@ export interface CompilerOptions extends ts.CompilerOptions {
    * in JIT mode. This is off by default.
    */
   enableSummariesForJit?: boolean;
+
+  /**
+   * Whether to replace the `templateUrl` and `styleUrls` property in all
+   * @Component decorators with inlined contents in `template` and `styles`
+   * properties.
+   * When enabled, the .js output of ngc will have no lazy-loaded `templateUrl`
+   * or `styleUrl`s. Note that this requires that resources be available to
+   * load statically at compile-time.
+   */
+  enableResourceInlining?: boolean;
+
+  /**
+   * Tells the compiler to generate definitions using the Render3 style code generation.
+   * This option defaults to `false`.
+   *
+   * Not all features are supported with this option enabled. It is only supported
+   * for experimentation and testing of Render3 style code generation.
+   *
+   * @experimental
+   */
+  enableIvy?: boolean|'ngtsc';
 
   /** @internal */
   collectAllErrors?: boolean;
@@ -196,7 +223,7 @@ export interface CompilerHost extends ts.CompilerHost {
   /**
    * Load a referenced resource either statically or asynchronously. If the host returns a
    * `Promise<string>` it is assumed the user of the corresponding `Program` will call
-   * `loadNgStructureAsync()`. Returing  `Promise<string>` outside `loadNgStructureAsync()` will
+   * `loadNgStructureAsync()`. Returning  `Promise<string>` outside `loadNgStructureAsync()` will
    * cause a diagnostics diagnostic error or an exception to be thrown.
    */
   readResource?(fileName: string): Promise<string>|string;
@@ -237,10 +264,8 @@ export interface TsEmitArguments {
 }
 
 export interface TsEmitCallback { (args: TsEmitArguments): ts.EmitResult; }
+export interface TsMergeEmitResultsCallback { (results: ts.EmitResult[]): ts.EmitResult; }
 
-/**
- * @internal
- */
 export interface LibrarySummary {
   fileName: string;
   text: string;
@@ -295,7 +320,7 @@ export interface Program {
   getNgStructuralDiagnostics(cancellationToken?: ts.CancellationToken): ReadonlyArray<Diagnostic>;
 
   /**
-   * Retrieve the semantic diagnostics from TypeScript. This is equivilent to calling
+   * Retrieve the semantic diagnostics from TypeScript. This is equivalent to calling
    * `getTsProgram().getSemanticDiagnostics()` directly and is included for completeness.
    */
   getTsSemanticDiagnostics(sourceFile?: ts.SourceFile, cancellationToken?: ts.CancellationToken):
@@ -330,19 +355,19 @@ export interface Program {
    *
    * Angular structural information is required to emit files.
    */
-  emit({emitFlags, cancellationToken, customTransformers, emitCallback}?: {
+  emit({emitFlags, cancellationToken, customTransformers, emitCallback,
+        mergeEmitResultsCallback}?: {
     emitFlags?: EmitFlags,
     cancellationToken?: ts.CancellationToken,
     customTransformers?: CustomTransformers,
-    emitCallback?: TsEmitCallback
+    emitCallback?: TsEmitCallback,
+    mergeEmitResultsCallback?: TsMergeEmitResultsCallback
   }): ts.EmitResult;
 
   /**
    * Returns the .d.ts / .ngsummary.json / .ngfactory.d.ts files of libraries that have been emitted
    * in this program or previous programs with paths that emulate the fact that these libraries
    * have been compiled before with no outDir.
-   *
-   * @internal
    */
   getLibrarySummaries(): Map<string, LibrarySummary>;
 

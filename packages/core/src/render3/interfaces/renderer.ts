@@ -35,11 +35,16 @@ export type Renderer3 = ObjectOrientedRenderer3 | ProceduralRenderer3;
  * (reducing payload size).
  * */
 export interface ObjectOrientedRenderer3 {
-  createComment(data: string): RComment;
   createElement(tagName: string): RElement;
   createTextNode(data: string): RText;
 
   querySelector(selectors: string): RElement|null;
+}
+
+/** Returns whether the `renderer` is a `ProceduralRenderer3` */
+export function isProceduralRenderer(renderer: ProceduralRenderer3 | ObjectOrientedRenderer3):
+    renderer is ProceduralRenderer3 {
+  return !!((renderer as any).listen);
 }
 
 /**
@@ -52,7 +57,6 @@ export interface ObjectOrientedRenderer3 {
 export interface ProceduralRenderer3 {
   destroy(): void;
   createElement(name: string, namespace?: string|null): RElement;
-  createComment(value: string): RComment;
   createText(value: string): RText;
   /**
    * This property is allowed to be null / undefined,
@@ -117,6 +121,7 @@ export interface RNode {
 export interface RElement extends RNode {
   style: RCssStyleDeclaration;
   classList: RDomTokenList;
+  className: string;
   setAttribute(name: string, value: string): void;
   removeAttribute(name: string): void;
   setAttributeNS(namespaceURI: string, qualifiedName: string, value: string): void;
@@ -137,8 +142,6 @@ export interface RDomTokenList {
 }
 
 export interface RText extends RNode { textContent: string|null; }
-
-export interface RComment extends RNode {}
 
 // Note: This hack is necessary so we don't erroneously get a circular dependency
 // failure based on types.
